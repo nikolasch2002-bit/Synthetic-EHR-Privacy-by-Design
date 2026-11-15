@@ -1,0 +1,13 @@
+# Proposes updates as pull requests. Dependabot's CI runs get no repository
+# secrets: to test one, push the same commit to a branch of your own. Before
+# merging a version bump, check the new commit is newer than the old one.
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
