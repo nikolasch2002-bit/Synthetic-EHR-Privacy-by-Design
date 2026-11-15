@@ -1,0 +1,20 @@
+# Runs before every commit: `uv run pre-commit install` once per clone.
+# gitleaks here checks staged changes only; CI scans every pushed commit.
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.2
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  # For SQL projects; add a .sqlfluff with the dialect.
+  # - repo: https://github.com/sqlfluff/sqlfluff
+  #   rev: 4.4.0
+  #   hooks:
+  #     - id: sqlfluff-lint
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks

@@ -1,0 +1,48 @@
+name: CI
+
+on: push
+
+permissions:
+  contents: read
+
+# Actions are pinned to a commit hash, not a tag: a tag can be moved to other
+# code, a hash cannot. Dependabot proposes updates.
+#
+# A starting point for a Python project managed with uv. For a database, add
+# a throwaway branch per run as the ICU Data Warehouse does:
+# https://github.com/nikolasch2002-bit/icu-data-warehouse/blob/main/.github/workflows/ci.yml
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # The full history, so the secret scan sees every pushed commit.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: uv sync --locked
+
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      # Scans every commit in the push. No licence is needed for a personal
+      # account. Prove it once: a fake key on a throwaway branch must fail.
+      - name: Scan for secrets
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # In CI a missing prerequisite must fail, never skip.
+      - name: Test
+        run: uv run pytest

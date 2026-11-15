@@ -1,0 +1,22 @@
+# Secrets: never committed. .env.example lists the names, without values.
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Source data: downloaded, never committed.
+data/
+
+# Python
+__pycache__/
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# dbt: target/ and logs/ can hold secrets passed to dbt; never publish them.
+dbt/target/
+dbt/logs/
+dbt/dbt_packages/
+
+# Local tool config for one machine
+.claude/launch.json
