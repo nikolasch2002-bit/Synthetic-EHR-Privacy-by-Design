@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "A synthetic EHR, built privacy-by-design. Every row is fake."
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic>=2.14.4",
+    "pyyaml>=6.0.3",
+]
 
 [dependency-groups]
 dev = [
@@ -19,3 +22,7 @@ package = false
 
 [tool.ruff]
 target-version = "py312"
+
+[tool.pytest.ini_options]
+# The generator is not installed as a package; let tests import it from the repo root.
+pythonpath = ["."]

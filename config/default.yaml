@@ -1,0 +1,120 @@
+# Generator config: the defaults decided in D5 and the rates approved in
+# docs/clinical-rules.md (2026-11-26). Each section names the section of that
+# file where its numbers and their sources are. Change a number there first,
+# with its reason, then here.
+
+seed: 20261126
+population: 25000
+locale: nl_NL
+
+history:
+  start: 2016-01-01
+  end: 2025-12-31
+  reference_date: 2025-12-31
+
+# Section 1. Share of the cohort by age on 2016-01-01; each band runs from its
+# `age_from` to the next band's. Derived from CBS 03759ned x 85454NED.
+age_mix:
+  - {age_from: 18, share: 0.116}
+  - {age_from: 30, share: 0.119}
+  - {age_from: 40, share: 0.128}
+  - {age_from: 50, share: 0.077}
+  - {age_from: 55, share: 0.167}
+  - {age_from: 65, share: 0.201}
+  - {age_from: 75, share: 0.192}
+max_age: 100 # oldest age on 2016-01-01 (assumed)
+female_share: 0.5 # assumed
+
+# Sections 2, 3 and 7. Listed in the order they are drawn: `raised_by` may
+# only name conditions listed above it. Prevalence is per 1,000, by age band.
+conditions:
+  hypertension:
+    icd10: I10
+    department: internal_medicine
+    prevalence_per_1000: # CBS 86055NED, ICPC K86-K87, 2024
+      age_from: [18, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
+      male: [18, 81, 137, 208, 288, 374, 450, 510, 553, 561, 570]
+      female: [22, 85, 143, 208, 282, 366, 450, 542, 615, 666, 668]
+    raised_by: {}
+
+  hyperlipidaemia:
+    icd10: E78
+    department: internal_medicine
+    prevalence_per_1000: # CBS 86055NED, ICPC T93, 2024
+      age_from: [18, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
+      male: [19, 73, 110, 146, 188, 227, 259, 267, 260, 237, 195]
+      female: [13, 43, 73, 120, 175, 234, 277, 308, 309, 297, 237]
+    raised_by: {hypertension: 2.0}
+
+  type2_diabetes:
+    icd10: E11
+    department: internal_medicine
+    prevalence_per_1000: # CBS 86055NED, ICPC T90 (all types), 2024
+      age_from: [18, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
+      male: [13, 44, 73, 101, 137, 172, 214, 242, 265, 253, 224]
+      female: [13, 34, 53, 75, 100, 128, 155, 188, 220, 229, 203]
+    prevalence_scale: 0.91 # type 2 share of all diabetes, Nivel 2022
+    raised_by: {hypertension: 2.0, hyperlipidaemia: 1.5}
+
+  ckd:
+    icd10: N18
+    department: nephrology
+    prevalence_per_1000: # assumed (stage 3-5, recorded)
+      age_from: [18, 45, 65, 75]
+      male: [5, 40, 120, 250]
+      female: [5, 40, 120, 250]
+    raised_by: {type2_diabetes: 2.5, hypertension: 2.0}
+
+  atrial_fibrillation:
+    icd10: I48
+    department: cardiology
+    prevalence_per_1000: # CBS 86055NED, ICPC K78, 2024
+      age_from: [18, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
+      male: [1, 5, 10, 18, 32, 55, 85, 124, 166, 189, 213]
+      female: [0, 2, 4, 9, 17, 30, 51, 85, 128, 151, 175]
+    raised_by: {hypertension: 1.5}
+
+  heart_failure:
+    icd10: I50
+    department: cardiology
+    prevalence_per_1000: # CBS 86055NED, ICPC K77, 2024
+      age_from: [18, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90]
+      male: [1, 3, 6, 9, 14, 23, 39, 64, 102, 163, 240]
+      female: [0, 2, 4, 6, 9, 16, 28, 48, 83, 138, 220]
+    raised_by:
+      {atrial_fibrillation: 4.0, hypertension: 2.0, type2_diabetes: 1.8, ckd: 2.0}
+
+# Section 4. Onset of a condition already present on 2016-01-01 (assumed).
+prevalent_onset_years_before: {min: 1, max: 15}
+
+# Section 5. Chance of dying within a year, by age, CBS 37360ned, 2019.
+# Each value holds from its age up to the next listed age.
+mortality:
+  age_from: [18, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 99]
+  male: [0.00025, 0.0004, 0.00039, 0.00052, 0.00068, 0.00082, 0.00144, 0.00225,
+    0.00371, 0.00634, 0.01011, 0.01669, 0.02883, 0.05157, 0.09362, 0.17111,
+    0.27764, 0.40244]
+  female: [0.00022, 0.00019, 0.00015, 0.00024, 0.00042, 0.00062, 0.00093,
+    0.00156, 0.00269, 0.00455, 0.00721, 0.01219, 0.0187, 0.03368, 0.06584,
+    0.13678, 0.23521, 0.34692]
+  hazard_ratios: # assumed
+    {heart_failure: 2.5, ckd: 1.8, type2_diabetes: 1.5, atrial_fibrillation: 1.5}
+
+# Section 7.
+departments: [internal_medicine, cardiology, nephrology, emergency]
+
+# Section 6.
+visits:
+  outpatient: # assumed
+    base_per_year: 0.5
+    per_condition_per_year: 1.0
+  emergency: # assumed
+    department: emergency
+    per_year: 0.15
+    heart_failure_factor: 2.0
+  inpatient:
+    per_year: # CBS 85454NED, admitted with an overnight stay, 2024
+      age_from: [18, 30, 40, 50, 55, 65, 75]
+      rate: [0.042, 0.054, 0.049, 0.055, 0.069, 0.104, 0.135]
+    heart_failure_factor: 2.0 # assumed
+    length_of_stay_days: {min: 1, max: 10} # assumed
