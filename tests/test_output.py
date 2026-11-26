@@ -126,3 +126,12 @@ def test_icd10_codes_are_bare_codes_without_titles(dataset):
         "I48",
         "I50",
     }
+
+
+def test_atc_and_loinc_codes_are_bare_codes_without_names(dataset):
+    # Names wait until the owner has read the ATC and LOINC terms (spec, "Data").
+    _, counts = dataset
+    assert COLUMNS["atc_code.csv"] == ["code"]
+    assert COLUMNS["loinc_code.csv"] == ["code"]
+    assert counts["atc_code.csv"] == 11
+    assert counts["loinc_code.csv"] == 10
