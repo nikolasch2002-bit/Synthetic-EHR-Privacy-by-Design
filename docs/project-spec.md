@@ -2,7 +2,7 @@
 
 > The source of truth. Written before any code. When building shows a part to be wrong, change it here and record why under [Changes to the spec](#changes-to-the-spec).
 
-Status: **draft, 2026-11-15; D4 decided 2026-11-26.** The decisions in [Open decisions](#open-decisions) are the owner's to make; each has a recommendation. Until they are made, the parts that depend on them are marked *(depends on D1)* and so on.
+Status: **draft, 2026-11-15; D1 and D4 decided 2026-11-26.** The decisions in [Open decisions](#open-decisions) are the owner's to make; each has a recommendation. Until they are made, the parts that depend on them are marked *(depends on D1)* and so on.
 
 A realistic but entirely fake electronic health record (EHR): patients, visits, diagnoses, medications and lab results, generated in Python with `Faker` and explicit clinical rules. On top of it: a normalized source schema, analytical marts, a small app for cohorts, visit timelines and drug–lab interactions, and a governance pack that treats the fake data as if it were real.
 
@@ -122,7 +122,9 @@ Top to bottom, with each trust boundary:
 
 1. **Generator** (laptop or CI): config + seed → CSV files in `data/` (gitignored), with a SHA-256 manifest.
 2. **Loader** → `ehr` schema. Identifiers (name, date of birth, address, MRN) live in `ehr_identity`, separate from the clinical tables, which hold only an internal patient ID. *Boundary 1: only the steward and the clinician roles can read `ehr_identity`.*
-3. **Transform** *(depends on D1)* `ehr` → `marts`: the internal ID is replaced by a keyed pseudonym; dates of birth become age bands; addresses become a region. *Boundary 2: researchers read `marts` only.*
+3. **Transform** (dbt) `ehr` → `marts`: the internal ID is replaced by a keyed pseudonym; dates of birth become age bands; addresses become a region. *Boundary 2: researchers read `marts` only.*
+
+   dbt drops and recreates its tables on every build, which removes anything attached to them. So every row-level security policy, grant and trigger on a dbt-built table is created by dbt itself, in a `post_hook` that runs in the same step as the table. A protection added afterwards by a separate script would vanish on the next build, and the table would be open until someone noticed (it would "fail open"). Roles, and functions that belong to no table, are created by a script that runs before dbt.
 4. **Public layer** `marts_public`: aggregates only, cells under k suppressed. *Boundary 3: the public app's role reads only this.*
 5. **App** reads with the role of the person using it.
 
@@ -185,13 +187,13 @@ Before building the marts, outline each question's SQL against them, and look fo
 | Language | Python 3.12, managed with uv | One tool for environments and the lock file |
 | Generator | `Faker` for names and addresses; `numpy` random generator with a seed for clinical values | Faker is not built for clinical values; one seeded generator makes output reproducible |
 | Config | YAML file validated with `pydantic` | Rates and rules change without code changes, and a typo fails loudly |
-| Database | *(D1)* PostgreSQL 16: local in Docker, hosted on a free tier | Roles, row-level security and views are the access-control story; DuckDB has no roles |
-| Transform | *(D1)* dbt-core with dbt-postgres, or plain SQL scripts | dbt gives tests and lineage; plain SQL is less to learn |
+| Database | PostgreSQL 16: local in Docker; in CI a fresh Postgres service container per run; hosted on a free tier for the app (D3) | Roles, row-level security and views prove the access-control design inside the database; DuckDB has no roles, so the design would live in app code that anyone with the file could bypass |
+| Transform | dbt-core with dbt-postgres | Build order, tests (unique, not null, relationships, accepted values), and docs with lineage come built in; plain SQL scripts would need all of that written by hand |
 | App | *(D3)* Streamlit on Streamlit Community Cloud, or FastAPI | See D3 |
 | Prediction model | scikit-learn (logistic regression, metrics, calibration), pandas, matplotlib for the plots | The standard Python ML library; logistic regression gives readable coefficients to compare with the planted ones |
 | Tests | pytest, plus dbt tests if dbt is chosen | |
 | Lint and secrets | ruff, sqlfluff, gitleaks in pre-commit and CI | From the starter |
-| CI | GitHub Actions, actions pinned to commit hashes | From the starter |
+| CI | GitHub Actions, actions pinned to commit hashes; a Postgres service container per run, built from empty: generate, load, `dbt build`, tests | From the starter. The data is synthetic and regenerated from the seed, so CI needs no hosted database and no database secrets |
 | Docs | Markdown, Mermaid diagrams, ADRs in MADR format | |
 
 ## Security and compliance deliverables
@@ -234,7 +236,7 @@ synthetic-ehr-privacy-by-design/
 ├── generator/               the package: patients, conditions, meds, labs, rules/
 ├── loader/                  CSV → ehr schema
 ├── db/                      ehr schema DDL
-├── transform/               marts (dbt project or SQL; D1)
+├── dbt/                     the dbt project: staging and marts models, tests, macros (post_hooks for policies and grants)
 ├── security/                roles.sql, row-level security, audit
 ├── app/                     the app (D3)
 ├── analytics/               the questions as .sql files + RESULTS.md
@@ -273,7 +275,7 @@ The owner decides these; each has options and a recommendation.
 
 | # | Decision | Options | Recommendation |
 | --- | --- | --- | --- |
-| D1 | Database and transforms | (a) Postgres + dbt; (b) Postgres + plain SQL; (c) DuckDB + dbt | **(a)**: Postgres has the roles and row-level security that the access-control design needs; dbt brings tests, docs and lineage that analytics jobs ask for |
+| D1 | Database and transforms | (a) Postgres + dbt; (b) Postgres + plain SQL; (c) DuckDB + dbt | **Decided 2026-11-26: (a)**: Postgres has the roles and row-level security that the access-control design needs; dbt brings tests, docs and lineage that analytics jobs ask for. See [ADR 0001](adr/0001-postgres-and-dbt.md) |
 | D2 | Clinical scope | The six conditions and five interactions above, or fewer / different ones | **The six above**: they share labs (potassium, creatinine), so the interactions arise naturally. Cut to four if time runs short |
 | D3 | App | (a) Streamlit with a role switcher; (b) FastAPI with token-scoped roles + a minimal front end; (c) both | **(a)**: one deployable app, free hosting; the role switcher shows the same screen giving different answers to different roles. (b) shows more software engineering but doubles the work |
 | D4 | Risk score | (a) CHA₂DS₂-VASc for the AF patients (a published rule); (b) an own "medication safety" score from eGFR, potassium, interacting drugs and age; (c) both; (d) a prediction model with a rule baseline | **Decided 2026-11-26: (d)**, a logistic regression for hyperkalaemia after a RAAS-inhibitor start, against a rule score. See [Prediction model](#prediction-model). (The recommendation was (a).) |
