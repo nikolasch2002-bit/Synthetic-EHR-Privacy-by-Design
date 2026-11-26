@@ -1,0 +1,14 @@
+# Filled from DATABASE_URL by transform/run.py at run time. No values here.
+synthetic_ehr:
+  target: local
+  outputs:
+    local:
+      type: postgres
+      host: "{{ env_var('DBT_PG_HOST') }}"
+      port: "{{ env_var('DBT_PG_PORT') | int }}"
+      user: "{{ env_var('DBT_PG_USER') }}"
+      # DBT_ENV_SECRET_ variables are scrubbed from dbt's logs.
+      password: "{{ env_var('DBT_ENV_SECRET_PG_PASSWORD') }}"
+      dbname: "{{ env_var('DBT_PG_DBNAME') }}"
+      schema: marts
+      threads: 4

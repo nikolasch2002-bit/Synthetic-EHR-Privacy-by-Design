@@ -1,0 +1,7 @@
+icd10_code,condition,icd10_chapter
+I10,hypertension,IX
+E78,hyperlipidaemia,IV
+E11,type2_diabetes,IV
+N18,ckd,XIV
+I48,atrial_fibrillation,IX
+I50,heart_failure,IX

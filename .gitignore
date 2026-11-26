@@ -20,3 +20,4 @@ dbt/dbt_packages/
 
 # Local tool config for one machine
 .claude/launch.json
+dbt/.user.yml

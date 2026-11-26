@@ -1,0 +1,12 @@
+atc_code,drug_name,drug_class
+A10BA02,metformin,biguanide
+A10AE04,insulin_glargine,insulin
+C09AA05,ramipril,ace_inhibitor
+C09CA01,losartan,arb
+C03AA03,hydrochlorothiazide,thiazide
+C03CA01,furosemide,loop_diuretic
+C03DA01,spironolactone,mra
+C07AB02,metoprolol,beta_blocker
+B01AA03,warfarin,vka
+B01AF02,apixaban,doac
+C10AA05,atorvastatin,statin
