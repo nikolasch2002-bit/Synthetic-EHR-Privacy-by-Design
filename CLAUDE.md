@@ -8,7 +8,7 @@ A portfolio project: a realistic but entirely fake electronic health record (pat
 
 **[docs/project-spec.md](docs/project-spec.md) is the source of truth.** It defines the scope (what is in and out), the design, the questions the project answers, and each deliverable with the test that proves it. Read the relevant section before building any part.
 
-Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D1 (Postgres + dbt), D2 (six conditions, five interactions), D3 (Streamlit, hosted/local split) and D4 (a prediction model) decided 2026-11-26; D5 open. Decisions sit in stacked pull requests (#3 onwards), merged in order once all are made.
+Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D1 (Postgres + dbt), D2 (six conditions, five interactions), D3 (Streamlit, hosted/local split), D4 (a prediction model) and D5 (25,000 patients, `nl_NL`, 2016–2025, hosted database holds only `marts_public`) decided 2026-11-26. All decisions made. They sit in stacked pull requests #3–#6, to be merged in order, each retargeted to `main` before its merge. Next: milestone week 1, the generator.
 
 ## Lessons from earlier projects
 
@@ -29,7 +29,7 @@ Read [docs/lessons-learned.md](docs/lessons-learned.md) before planning: section
 
 ## Rules for this project
 
-- **Data:** every row is generated from a seed; no real person's data is ever used or read. The generated dataset is not committed (it is regenerated from the seed); a small test sample (≤ 50 patients) may be. Identifiers live only in the identity schema; the public app reads only aggregates after small-cell suppression. Generated data may be shown in an AI chat. The full table is in the spec's "Data" section.
+- **Data:** every row is generated from a seed; no real person's data is ever used or read. The generated dataset is not committed (it is regenerated from the seed); a small test sample (≤ 50 patients) may be. Identifiers live only in the identity schema; the public app reads only aggregates after small-cell suppression. The hosted database holds only `marts_public`, copied by the publish script; nothing else ever leaves the local and CI databases. Generated data may be shown in an AI chat. The full table is in the spec's "Data" section.
 - **Identifiers:** every invented identifier uses a format no real person can have (prefix `SYN-`). Never use Faker's national ID generators.
 - **Prediction model:** one logistic regression for hyperkalaemia after a RAAS-inhibitor start, against a rule baseline (spec, "Prediction model"). Call it a statistical model, and never claim it works on real patients: it learns the generator, not medicine. Features must come from before the index date.
 - **Out of scope:** any other model, deep learning; synthetic data derived from real data; free-text notes, imaging, vital signs, microbiology, billing; FHIR, HL7 v2, OMOP; real authentication; clinical validity.
@@ -50,5 +50,6 @@ On this Windows machine `uv` runs as `python -m uv`, and `gh` is at `C:\Program 
 - **Database:** PostgreSQL 16, locally in Docker; in CI a fresh Postgres service container per run, built from the seed (no hosted database, no database secrets in CI). Not set up yet.
 - **Transforms:** dbt-core with dbt-postgres ([ADR 0001](docs/adr/0001-postgres-and-dbt.md)). Every policy, grant and trigger on a dbt-built table is created by dbt in a `post_hook`; roles and table-independent functions are created by a script before dbt runs.
 - **App:** Streamlit ([ADR 0003](docs/adr/0003-streamlit-hosted-local.md)), in two modes. **Hosted** (Streamlit Community Cloud, public): its secrets hold only the `public_app` login; aggregates only, no role switcher, no patient timeline. **Local:** the role switcher, the timeline and the identifiable screens. Never give the hosted app any other login. Not built yet.
-- **Hosting for the database:** a free hosted Postgres for the hosted app; provider chosen when it is set up (week 7).
+- **Hosting for the database:** a free hosted Postgres for the hosted app, holding only `marts_public` ([ADR 0004](docs/adr/0004-population-and-hosted-data.md)); provider chosen when it is set up (week 7).
+- **Generator defaults (config):** 25,000 patients, Faker locale `nl_NL`, history 2016-01-01 to 2025-12-31, reference date 2025-12-31; RAAS-inhibitor starts counted from 2017-01-01.
 - **Secrets:** none yet.
