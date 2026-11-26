@@ -1,12 +1,12 @@
 ---
-status: proposed
+status: accepted
 date: 2026-11-26
 decision-makers: Nick Christoforakis
 ---
 
 # Generate 25,000 Dutch-locale patients over ten years, and host only the public layer
 
-<!-- Drafted by the assistant from the owner's decision. Stays "proposed" until the owner has rewritten it in their own words. -->
+<!-- Drafted by the assistant from the owner's decision; reviewed and accepted by the owner, 2026-11-26. -->
 
 ## Context and Problem Statement
 

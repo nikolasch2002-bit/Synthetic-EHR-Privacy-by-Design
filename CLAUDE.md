@@ -8,7 +8,7 @@ A portfolio project: a realistic but entirely fake electronic health record (pat
 
 **[docs/project-spec.md](docs/project-spec.md) is the source of truth.** It defines the scope (what is in and out), the design, the questions the project answers, and each deliverable with the test that proves it. Read the relevant section before building any part.
 
-Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D1 (Postgres + dbt), D2 (six conditions, five interactions), D3 (Streamlit, hosted/local split), D4 (a prediction model) and D5 (25,000 patients, `nl_NL`, 2016–2025, hosted database holds only `marts_public`) decided 2026-11-26, and merged into `main` (pull requests #3–#6). ADRs 0001–0004 are drafts (status `proposed`) until I rewrite them. Next: milestone week 1, the generator.
+Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D1 (Postgres + dbt), D2 (six conditions, five interactions), D3 (Streamlit, hosted/local split), D4 (a prediction model) and D5 (25,000 patients, `nl_NL`, 2016–2025, hosted database holds only `marts_public`) decided 2026-11-26, and merged into `main` (pull requests #3–#6). ADRs 0001–0004 accepted 2026-11-26 as drafted by the assistant, after my review. Next: milestone week 1, the generator.
 
 ## Lessons from earlier projects
 
