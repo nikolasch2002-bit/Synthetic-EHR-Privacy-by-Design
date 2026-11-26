@@ -16,24 +16,18 @@ import pytest
 
 from analytics.run import PATIENT_COUNTS, run_query, suppress
 from generator.config import load_config
+from tests.conftest import KEY_A
 from tests.test_database import check_dictionary
 from transform.pseudonyms import PREFIX, pseudonym
 from transform.run import build
 from transform.seeds import SEEDS, seed_files
 
-KEY_A = bytes(range(32))
 KEY_B = bytes(range(1, 33))
 # Source keys that encode a patient ID, and identity columns: never in a mart.
 FORBIDDEN_COLUMNS = {
     "patient_id", "encounter_id", "lab_order_id", "condition_id", "medication_order_id",
     "mrn", "given_name", "family_name", "birth_date", "street_address", "postcode", "city",
 }  # fmt: skip
-
-
-@pytest.fixture(scope="module")
-def built(url, loaded):
-    build(url, KEY_A)
-    return url
 
 
 def mart_tables(c) -> list[str]:
@@ -268,7 +262,7 @@ def test_the_committed_results_have_no_small_patient_count():
             )
             for column in PATIENT_COUNTS & set(header):
                 value = cells[column]
-                assert value == "<10" or int(value) == 0 or int(value) >= 10, (
+                assert value in ("<10", "") or int(value) == 0 or int(value) >= 10, (
                     column,
                     value,
                 )

@@ -40,3 +40,9 @@ seeds:
         female_reference_high: numeric
         limit_low: numeric
         limit_high: numeric
+    dim_drug_lab_rule:
+      +column_types:
+        threshold: numeric
+        threshold_times_upper_limit: boolean
+        window_days_after_start: integer
+        planted_rate: numeric

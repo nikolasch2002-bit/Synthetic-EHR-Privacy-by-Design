@@ -109,6 +109,54 @@ models:
           - relationships:
               arguments: {to: ref('dim_date'), field: date_key}
 
+  - name: fact_drug_lab_event
+    description: One row per lab result inside an exposure window of a medicine linked to that test by a rule.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [lab_result_key, rule]}
+    columns:
+      - name: event_key
+        data_tests: [unique, not_null]
+      - name: lab_result_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('fact_lab_result'), field: lab_result_key}
+      - name: pseudonym
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_patient'), field: pseudonym}
+      - name: rule_triggered
+        data_tests: [not_null]
+      - name: date_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_key}
+
+  - name: fact_raas_start
+    description: One row per RAAS-inhibitor start from 2017; the prediction model's cohort.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [pseudonym, drug_class, index_date]}
+    columns:
+      - name: raas_start_key
+        data_tests: [unique, not_null]
+      - name: pseudonym
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_patient'), field: pseudonym}
+      - name: drug_class
+        data_tests:
+          - accepted_values:
+              arguments: {values: ["ace_inhibitor", "arb", "mra"]}
+      - name: rule_score
+        data_tests:
+          - accepted_values:
+              arguments: {values: [0, 1, 2, 3, 4, 5], quote: false}
+      - name: index_date_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_key}
+
   - name: fact_medication_exposure
     description: One row per continuous period a patient takes one medicine.
     columns:
