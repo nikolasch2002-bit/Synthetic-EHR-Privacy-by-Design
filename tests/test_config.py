@@ -67,6 +67,9 @@ BROKEN = {
         ("conditions", "hypertension", "raised_by"), {"heart_failure": 2.0}
     ),
     "unknown department": set_value((*CKD, "department"), "urology"),
+    "unknown default department": set_value(
+        ("visits", "outpatient", "default_department"), "urology"
+    ),
     "invalid ICD-10 code": set_value((*CKD, "icd10"), "N 18"),
     "chance of dying above 1": set_value(("mortality", "male", -1), 1.2),
     "hazard ratio for unknown condition": set_value(

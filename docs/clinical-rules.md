@@ -93,6 +93,15 @@ For comparison, Dutch adults reported 5.1 specialist contacts per person in 2024
 
 Inpatient length of stay: 1 to 10 days, more for older patients and heart failure (*assumed*). Nobody has a visit after their date of death.
 
+**Added in week 1, drafted by the assistant for the owner's review** (all *assumed*):
+
+- Inpatient length of stay: a whole number of days from 1 to 10, each equally likely; for patients aged 75+ or admitted for heart failure, the longer of two such draws.
+- Outpatient visits start on weekdays between 08:00 and 16:59, on a 5-minute grid, and last 10 to 30 minutes. Emergency visits start at any time and last 1 to 6 hours. Admissions start at any time.
+- A visit is for one of the conditions the patient has on that day, each equally likely. A patient with none yet sees internal medicine, and the visit has no diagnosis recorded.
+- Diagnoses recorded: the condition the visit is for, as primary. A clinic visit adds the patient's other conditions that the same department treats; an admission adds all their other conditions, as secondary. An emergency visit records only its primary.
+- Rates are per year: in the year of death, a patient's expected visits are cut in proportion to the part of the year they were alive.
+- 8 clinicians per department, with Dutch Faker names. A visit's clinician is drawn from its department.
+
 ## 7. Departments
 
 Each visit goes to the department that treats the condition it is for (*assumed*, following usual Dutch hospital practice):
