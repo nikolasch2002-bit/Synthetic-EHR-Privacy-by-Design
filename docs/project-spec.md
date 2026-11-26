@@ -2,7 +2,7 @@
 
 > The source of truth. Written before any code. When building shows a part to be wrong, change it here and record why under [Changes to the spec](#changes-to-the-spec).
 
-Status: **draft, 2026-11-15; D1, D2 and D4 decided 2026-11-26.** The decisions in [Open decisions](#open-decisions) are the owner's to make; each has a recommendation. Until they are made, the parts that depend on them are marked *(depends on D1)* and so on.
+Status: **draft, 2026-11-15; D1–D4 decided 2026-11-26.** The decisions in [Open decisions](#open-decisions) are the owner's to make; each has a recommendation. Until they are made, the parts that depend on them are marked *(depends on D1)* and so on.
 
 A realistic but entirely fake electronic health record (EHR): patients, visits, diagnoses, medications and lab results, generated in Python with `Faker` and explicit clinical rules. On top of it: a normalized source schema, analytical marts, a small app for cohorts, visit timelines and drug–lab interactions, and a governance pack that treats the fake data as if it were real.
 
@@ -47,7 +47,7 @@ The CV line: "Built a synthetic EHR generator with clinically plausible rules, a
 3. **Source schema `ehr`**: normalized (3NF), with primary and foreign keys and check constraints, the way an EHR records care.
 4. **Analytical marts**: a star schema built from `ehr`, pseudonymized, for cohort and interaction questions.
 5. ~~**A rule-based risk score**, computed in SQL and documented as a published or written rule, not as a model *(depends on D4)*.~~ **A prediction model with a rule baseline** (`ml/`): the chance of hyperkalaemia after starting a drug that raises potassium, from logistic regression, compared with a simple rule score. See [Prediction model](#prediction-model). (See [Changes to the spec](#changes-to-the-spec).)
-6. **An app** *(depends on D3)*: cohort builder, patient visit timeline, drug–lab interaction view, ~~risk score distribution~~ the rule score's and the model's performance, as aggregates.
+6. **An app** (Streamlit): cohort builder, patient visit timeline, drug–lab interaction view, ~~risk score distribution~~ the rule score's and the model's performance, as aggregates. It runs in two modes (see [Architecture](#architecture)): **hosted**, public, aggregates only; and **local**, with the role switcher and the patient timeline.
 7. **Governance pack** (`governance/`): data dictionary, pseudonymization approach, access control design, DPIA-style checklist, Art. 25 mapping, threat model.
 8. **SDLC evidence**: ADRs, issues and pull requests, CI, tagged releases, a changelog.
 
@@ -57,7 +57,7 @@ The CV line: "Built a synthetic EHR generator with clinically plausible rules, a
 - Generating synthetic data *from* real data (GANs, Synthea-style models fitted to real records). This project's data comes from rules only, which is why it carries no re-identification risk.
 - Free-text clinical notes, imaging, vital signs, microbiology, billing.
 - Interoperability standards beyond codes: no FHIR server, no HL7 v2, no OMOP mapping. The README names them and says why they are out (scope).
-- Real authentication with passwords or single sign-on. The app's roles are demonstrated with a role switcher over database roles *(depends on D3)*.
+- Real authentication with passwords or single sign-on. The app's roles are demonstrated with a role switcher over database roles, in local mode only.
 - Clinical validity. The data is plausible, not accurate; nothing here is clinical advice. The rule score and the model must say so on screen.
 
 ## Clinical content
@@ -128,7 +128,9 @@ Top to bottom, with each trust boundary:
 
    dbt drops and recreates its tables on every build, which removes anything attached to them. So every row-level security policy, grant and trigger on a dbt-built table is created by dbt itself, in a `post_hook` that runs in the same step as the table. A protection added afterwards by a separate script would vanish on the next build, and the table would be open until someone noticed (it would "fail open"). Roles, and functions that belong to no table, are created by a script that runs before dbt.
 4. **Public layer** `marts_public`: aggregates only, cells under k suppressed. *Boundary 3: the public app's role reads only this.*
-5. **App** reads with the role of the person using it.
+5. **App** reads with the role of the person using it, in one of two modes:
+   - **Hosted** (Streamlit Community Cloud, public): its secrets hold only the `public_app` database login, so it can read only `marts_public`. It shows cohort counts, interaction rates and model performance, all suppressed below k. No role switcher, no patient timeline. A bug cannot show more, because the hosted app has no credentials that could read more. *Boundary 4: the internet sees only what `public_app` can read.*
+   - **Local** (anyone's own machine, from the five-command setup): the role switcher over the `clinician_<dept>`, `researcher`, `data_steward` and `public_app` logins, the patient timeline and the identifiable screens. Shown in the README with screenshots and a short recording.
 
 ## Data model
 
@@ -189,9 +191,9 @@ Before building the marts, outline each question's SQL against them, and look fo
 | Language | Python 3.12, managed with uv | One tool for environments and the lock file |
 | Generator | `Faker` for names and addresses; `numpy` random generator with a seed for clinical values | Faker is not built for clinical values; one seeded generator makes output reproducible |
 | Config | YAML file validated with `pydantic` | Rates and rules change without code changes, and a typo fails loudly |
-| Database | PostgreSQL 16: local in Docker; in CI a fresh Postgres service container per run; hosted on a free tier for the app (D3) | Roles, row-level security and views prove the access-control design inside the database; DuckDB has no roles, so the design would live in app code that anyone with the file could bypass |
+| Database | PostgreSQL 16: local in Docker; in CI a fresh Postgres service container per run; a free hosted Postgres for the hosted app, provider chosen when it is set up (week 7) | Roles, row-level security and views prove the access-control design inside the database; DuckDB has no roles, so the design would live in app code that anyone with the file could bypass |
 | Transform | dbt-core with dbt-postgres | Build order, tests (unique, not null, relationships, accepted values), and docs with lineage come built in; plain SQL scripts would need all of that written by hand |
-| App | *(D3)* Streamlit on Streamlit Community Cloud, or FastAPI | See D3 |
+| App | Streamlit; hosted mode on Streamlit Community Cloud (free; sleeps after a while without visitors), local mode on the user's machine | Python only, so filters, charts and the timeline are quick to build, with free hosting. FastAPI would show more backend engineering but about doubles the work. See [ADR 0003](adr/0003-streamlit-hosted-local.md) |
 | Prediction model | scikit-learn (logistic regression, metrics, calibration), pandas, matplotlib for the plots | The standard Python ML library; logistic regression gives readable coefficients to compare with the planted ones |
 | Tests | pytest, plus dbt tests if dbt is chosen | |
 | Lint and secrets | ruff, sqlfluff, gitleaks in pre-commit and CI | From the starter |
@@ -209,6 +211,7 @@ Built as if the data were real patients' data. Say that sentence in the README.
 | `governance/access-control.md` + `security/roles.sql` | Roles: `clinician_<dept>` (identifiable, own department only, row-level security), `researcher` (marts only), `data_steward` (re-linking), `public_app` (suppressed aggregates only), `etl` (writes, cannot read the audit log). A role × object matrix | A pytest connects as each role and checks what it can and cannot read, matching the matrix cell by cell |
 | Small-cell suppression | `marts_public` hides any count below k (proposed k = 10) | A test builds a cohort of fewer than k patients and checks the public layer shows it as suppressed |
 | Audit | A log of who re-linked a pseudonym and when, which the steward cannot edit | A re-link adds a row; the steward's delete fails |
+| Hosted/local split | The hosted app's secrets template lists only the `public_app` login; in hosted mode the role switcher and timeline are not built | A test runs the app in hosted mode and checks that no role switcher or timeline appears; the role test checks that `public_app` reads only `marts_public` |
 | `governance/dpia.md` | A DPIA-style checklist following Art. 35(7): description and purpose, necessity and proportionality, risks to people, measures. Written for the scenario "this system holds real patient data" | Each measure in it links to the file or test that implements it |
 | `governance/privacy-by-design.md` | Art. 25 mapping: each principle in Art. 5 (minimization, purpose limitation, storage limitation, integrity) → what the system does → where | Each row links to code or a test |
 | `governance/threat-model.md` | STRIDE table over the trust boundaries above, and what changes with real data | Each claim checked against the running system |
@@ -240,7 +243,7 @@ synthetic-ehr-privacy-by-design/
 ├── db/                      ehr schema DDL
 ├── dbt/                     the dbt project: staging and marts models, tests, macros (post_hooks for policies and grants)
 ├── security/                roles.sql, row-level security, audit
-├── app/                     the app (D3)
+├── app/                     the Streamlit app: hosted mode (public) and local mode (role switcher, timeline)
 ├── analytics/               the questions as .sql files + RESULTS.md
 ├── ml/                      cohort, split, baseline, model, evaluation + results
 ├── governance/              data dictionary, pseudonymization, access control, DPIA, Art. 25, threat model, model card
@@ -252,7 +255,7 @@ synthetic-ehr-privacy-by-design/
 └── pyproject.toml
 ```
 
-README, top to bottom: one-line pitch and badges; "every row is fake, and it is protected as if it were real"; screenshot and link to the app; architecture diagram; what it answers; the prediction model, its results and "it learns the generator, not medicine"; the governance pack as a table of links; run it yourself in five commands; decisions (links to ADRs); licences of the code sets.
+README, top to bottom: one-line pitch and badges; "every row is fake, and it is protected as if it were real"; link to the hosted app, and screenshots and a short recording of local mode's role switcher; architecture diagram; what it answers; the prediction model, its results and "it learns the generator, not medicine"; the governance pack as a table of links; run it yourself in five commands; decisions (links to ADRs); licences of the code sets.
 
 ## Milestones
 
@@ -268,7 +271,7 @@ Start date: *to be set by the owner.* About ~~8~~ 9 weeks at 10–15 hours a wee
 | 5 | Drug–lab events and the ~~risk score~~ rule baseline score; planted-rate tests pass |
 | 6 | Prediction model: cohort, split, baseline, model, evaluation; leakage, split and recovery tests pass; model card drafted |
 | 7 | Roles, row-level security, suppression, audit, each with its failing-then-passing test; hosted database |
-| 8 | App deployed to a public URL |
+| 8 | Hosted mode deployed to a public URL; local mode with the role switcher and timeline, recorded for the README |
 | 9 | Governance pack checked against the running system; README; release `v1.0.0` |
 
 ## Open decisions
@@ -279,7 +282,7 @@ The owner decides these; each has options and a recommendation.
 | --- | --- | --- | --- |
 | D1 | Database and transforms | (a) Postgres + dbt; (b) Postgres + plain SQL; (c) DuckDB + dbt | **Decided 2026-11-26: (a)**: Postgres has the roles and row-level security that the access-control design needs; dbt brings tests, docs and lineage that analytics jobs ask for. See [ADR 0001](adr/0001-postgres-and-dbt.md) |
 | D2 | Clinical scope | (a) The six conditions and five interactions above; (b) the four cardio-renal-metabolic conditions only; (c) a changed list | **Decided 2026-11-26: (a)**: they share labs (potassium, creatinine), so the interactions arise naturally, and five kinds of drug–lab problem give the app variety. Also decided: a start is a first order in 180 days; starts with no potassium measured in 30 days are left out and counted. See [ADR 0002](adr/0002-clinical-scope.md) |
-| D3 | App | (a) Streamlit with a role switcher; (b) FastAPI with token-scoped roles + a minimal front end; (c) both | **(a)**: one deployable app, free hosting; the role switcher shows the same screen giving different answers to different roles. (b) shows more software engineering but doubles the work |
+| D3 | App | (a) Streamlit with a role switcher; (b) FastAPI with token-scoped roles + a minimal front end; (c) both | **Decided 2026-11-26: (a)**, with a hosted/local split: hosted mode is public and aggregates only; the role switcher and timeline run in local mode. (b) shows more software engineering but doubles the work. See [ADR 0003](adr/0003-streamlit-hosted-local.md) |
 | D4 | Risk score | (a) CHA₂DS₂-VASc for the AF patients (a published rule); (b) an own "medication safety" score from eGFR, potassium, interacting drugs and age; (c) both; (d) a prediction model with a rule baseline | **Decided 2026-11-26: (d)**, a logistic regression for hyperkalaemia after a RAAS-inhibitor start, against a rule score. See [Prediction model](#prediction-model). (The recommendation was (a).) |
 | D5 | Population and setting | Size (e.g. 5,000 patients default, scalable); Faker locale (e.g. `nl_NL`, `en_GB`) | **5,000 patients, a European locale**: fits a free hosted database and suits a GDPR story |
 
@@ -288,3 +291,4 @@ The owner decides these; each has options and a recommendation.
 | Date | What changed | Why |
 | --- | --- | --- |
 | 2026-11-26 | Machine learning moves from out of scope to in scope, as one model: logistic regression predicting hyperkalaemia within 30 days of a RAAS-inhibitor start, compared with a rule baseline. Replaces the rule-based risk score (`fact_risk_score` becomes `fact_raas_start`), adds the [Prediction model](#prediction-model) section, question 8, a model card, a generator proof, `ml/`, and a week to the milestones (8 → 9) | Decided by the project owner (D4), to learn the machine-learning workflow for future projects. The target uses only data the generator already makes, so the clinical scope (D2) is unchanged. The original brief's "without calling it AI" no longer fits a model learned from data, so the project calls it a statistical model and says what it can and cannot show |
+| 2026-11-26 | The app runs in two modes. Hosted (public) holds only the `public_app` login and shows aggregates; the role switcher and the patient timeline run in local mode only. Adds a fourth trust boundary and a test | The spec contradicted itself: the app had a role switcher, but the data table allows the public app only suppressed aggregates. A public switcher would let anyone choose the clinician role and see the identifiable layer, and a patient timeline is per-patient data. Found while deciding D3 |

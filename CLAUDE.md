@@ -8,7 +8,7 @@ A portfolio project: a realistic but entirely fake electronic health record (pat
 
 **[docs/project-spec.md](docs/project-spec.md) is the source of truth.** It defines the scope (what is in and out), the design, the questions the project answers, and each deliverable with the test that proves it. Read the relevant section before building any part.
 
-Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D1 (Postgres + dbt), D2 (six conditions, five interactions) and D4 (a prediction model) decided 2026-11-26; D3 and D5 open. Decisions sit in stacked pull requests (#3 onwards), merged in order once all are made.
+Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D1 (Postgres + dbt), D2 (six conditions, five interactions), D3 (Streamlit, hosted/local split) and D4 (a prediction model) decided 2026-11-26; D5 open. Decisions sit in stacked pull requests (#3 onwards), merged in order once all are made.
 
 ## Lessons from earlier projects
 
@@ -49,5 +49,6 @@ On this Windows machine `uv` runs as `python -m uv`, and `gh` is at `C:\Program 
 - **CI:** GitHub Actions (`.github/workflows/ci.yml`) on every push: lint, secret scan of every pushed commit, tests. Actions pinned to commit hashes; Dependabot proposes updates.
 - **Database:** PostgreSQL 16, locally in Docker; in CI a fresh Postgres service container per run, built from the seed (no hosted database, no database secrets in CI). Not set up yet.
 - **Transforms:** dbt-core with dbt-postgres ([ADR 0001](docs/adr/0001-postgres-and-dbt.md)). Every policy, grant and trigger on a dbt-built table is created by dbt in a `post_hook`; roles and table-independent functions are created by a script before dbt runs.
-- **App and hosting:** not chosen yet (spec decision D3).
+- **App:** Streamlit ([ADR 0003](docs/adr/0003-streamlit-hosted-local.md)), in two modes. **Hosted** (Streamlit Community Cloud, public): its secrets hold only the `public_app` login; aggregates only, no role switcher, no patient timeline. **Local:** the role switcher, the timeline and the identifiable screens. Never give the hosted app any other login. Not built yet.
+- **Hosting for the database:** a free hosted Postgres for the hosted app; provider chosen when it is set up (week 7).
 - **Secrets:** none yet.
