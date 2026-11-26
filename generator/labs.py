@@ -156,6 +156,14 @@ class LabMaker:
                             None,
                         )
                     )
+        # The tests that diagnose diabetes, on the day it is diagnosed.
+        diabetes_onset = onsets.get("type2_diabetes")
+        if (
+            diabetes_onset is not None
+            and config.history.start <= diabetes_onset <= last
+        ):
+            tests = self._panel_of(rules.tests_at_diabetes_diagnosis)
+            groups.append(_Group(morning(diabetes_onset), tests, None))
         for s in statin_starts:
             follow = rules.alt_after_statin_start
             if rng.random() < follow.chance:
@@ -357,19 +365,17 @@ class LabMaker:
             )
             return rng.normal(model.sodium_mean + effect, model.sodium_test_sd)
 
-        diabetic = onsets.get("type2_diabetes", dt.date.max) <= day
+        diabetes_onset = onsets.get("type2_diabetes")
         if test == "hba1c":
-            return self._hba1c(own, diabetic, ramp) + rng.normal(0, model.hba1c_test_sd)
+            hba1c = self._hba1c(own, diabetes_onset, day, ramp)
+            return hba1c + rng.normal(0, model.hba1c_test_sd)
 
         if test == "glucose":
-            if not diabetic:
+            hba1c = self._hba1c(own, diabetes_onset, day, ramp)
+            if hba1c == own["hba1c_healthy"]:
                 return rng.normal(own["glucose_healthy"], 0.3)
             line = model.glucose_from_hba1c
-            return (
-                line.intercept
-                + line.slope * self._hba1c(own, diabetic, ramp)
-                + rng.normal(0, line.sd)
-            )
+            return line.intercept + line.slope * hba1c + rng.normal(0, line.sd)
 
         if test == "ldl":
             high = onsets.get("hyperlipidaemia", dt.date.max) <= day
@@ -415,12 +421,25 @@ class LabMaker:
 
         raise ValueError(f"no value rule for lab test {test}")
 
-    def _hba1c(self, own, diabetic: bool, ramp) -> float:
+    def _hba1c(self, own, onset: dt.date | None, day: dt.date, ramp) -> float:
+        """The patient's true HbA1c on `day`.
+
+        Diabetes is diagnosed because HbA1c is high, so it rises over the year
+        before the diagnosis, from the patient's healthy level to their
+        diabetic level, which is at least the diagnostic threshold. After the
+        diagnosis, metformin and insulin bring it down.
+        """
         model = self.config.lab_model
-        if not diabetic:
-            return own["hba1c_healthy"]
+        healthy = own["hba1c_healthy"]
+        rise = dt.timedelta(days=model.hba1c_rise_before_diagnosis_days)
+        if onset is None or day < onset - rise:
+            return healthy
+        diabetic = max(own["hba1c_diabetes"], model.hba1c_diagnosis_threshold)
+        if day < onset:
+            share = 1 - (onset - day) / rise
+            return healthy + (diabetic - healthy) * share
         return (
-            own["hba1c_diabetes"]
+            diabetic
             + model.hba1c_metformin_effect * ramp("metformin")
             + model.hba1c_insulin_effect * ramp("insulin_glargine")
         )
