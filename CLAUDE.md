@@ -8,7 +8,7 @@ A portfolio project: a realistic but entirely fake electronic health record (pat
 
 **[docs/project-spec.md](docs/project-spec.md) is the source of truth.** It defines the scope (what is in and out), the design, the questions the project answers, and each deliverable with the test that proves it. Read the relevant section before building any part.
 
-Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D4 decided (a prediction model, 2026-11-26); D1, D2, D3 and D5 open.
+Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D1 decided (Postgres + dbt) and D4 decided (a prediction model), both 2026-11-26; D2, D3 and D5 open.
 
 ## Lessons from earlier projects
 
@@ -47,5 +47,7 @@ On this Windows machine `uv` runs as `python -m uv`, and `gh` is at `C:\Program 
 ## Architecture and environment
 
 - **CI:** GitHub Actions (`.github/workflows/ci.yml`) on every push: lint, secret scan of every pushed commit, tests. Actions pinned to commit hashes; Dependabot proposes updates.
-- **Database, transforms, app, hosting:** not chosen yet (spec decisions D1 and D3).
+- **Database:** PostgreSQL 16, locally in Docker; in CI a fresh Postgres service container per run, built from the seed (no hosted database, no database secrets in CI). Not set up yet.
+- **Transforms:** dbt-core with dbt-postgres ([ADR 0001](docs/adr/0001-postgres-and-dbt.md)). Every policy, grant and trigger on a dbt-built table is created by dbt in a `post_hook`; roles and table-independent functions are created by a script before dbt runs.
+- **App and hosting:** not chosen yet (spec decision D3).
 - **Secrets:** none yet.
