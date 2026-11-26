@@ -17,7 +17,7 @@ def raw() -> dict:
 
 def test_default_config_loads():
     config = load_config()
-    assert config.population == 25_000
+    assert config.population == 40_000
     assert config.locale == "nl_NL"
     assert str(config.history.start) == "2016-01-01"
     assert next(iter(config.conditions)) == "hypertension"

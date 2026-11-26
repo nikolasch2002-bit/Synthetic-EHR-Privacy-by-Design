@@ -140,6 +140,197 @@ class Visits(Strict):
     inpatient: Inpatient
 
 
+# --- Week 2: medicines and labs (docs/clinical-rules.md sections 9 to 11) ---
+
+
+class Drug(Strict):
+    atc: str = Field(pattern=r"^[A-Z]\d{2}[A-Z]{2}\d{2}$")
+    drug_class: str
+    dose: float = Field(gt=0)
+    unit: str
+    frequency: str
+
+
+class TreatmentChoice(Strict):
+    drugs: dict[str, float]  # medicine -> chance; at most one is chosen
+    unless: list[str] = []  # skipped if already on a medicine of these classes
+    after_years: Range | None = None  # started this long after diagnosis
+
+    @model_validator(mode="after")
+    def _chances(self) -> "TreatmentChoice":
+        if (
+            any(p < 0 for p in self.drugs.values())
+            or sum(self.drugs.values()) > 1 + 1e-9
+        ):
+            raise ValueError(
+                "a choice's chances must be 0 or more and add up to at most 1"
+            )
+        return self
+
+
+class MedicationRules(Strict):
+    start_after_diagnosis_days: Range
+    prescription_days: int = Field(gt=0)
+    yearly_stop_chance: float = Field(ge=0, le=1)
+    spironolactone_add_on_per_year: float = Field(ge=0, le=1)
+    ace_inhibitor_to_arb_switch: float = Field(ge=0, le=1)
+    metformin_stop_below_egfr_30: float = Field(ge=0, le=1)
+
+
+class LabTest(Strict):
+    decimals: int = Field(ge=0)  # as reported; thresholds apply to the rounded value
+    loinc: str = Field(pattern=r"^\d{1,7}-\d$")
+    unit: str
+    ref_low: float | None = None
+    ref_high: float | None = None
+    female_ref_low: float | None = None  # when women's range differs
+    female_ref_high: float | None = None
+    limit_low: float
+    limit_high: float
+
+    @model_validator(mode="after")
+    def _order(self) -> "LabTest":
+        if not self.limit_low < self.limit_high:
+            raise ValueError("limit_low must be below limit_high")
+        refs = (self.ref_low, self.ref_high, self.female_ref_low, self.female_ref_high)
+        for value in refs:
+            if value is not None and not self.limit_low <= value <= self.limit_high:
+                raise ValueError(
+                    "a reference limit must lie within the physiological limits"
+                )
+        return self
+
+    def reference(self, sex: str) -> tuple[float | None, float | None]:
+        """The reference range for a man ("M") or a woman ("F")."""
+        if sex == "F":
+            low = self.ref_low if self.female_ref_low is None else self.female_ref_low
+            high = (
+                self.ref_high if self.female_ref_high is None else self.female_ref_high
+            )
+            return low, high
+        return self.ref_low, self.ref_high
+
+
+class FollowUp(Strict):
+    chance: float = Field(ge=0, le=1)
+    days: Range
+
+
+class LabRules(Strict):
+    outpatient_labs_chance: float = Field(ge=0, le=1)
+    result_after_hours: Range
+    inr_monitoring_days: int = Field(gt=0)
+    potassium_after_raas_start: FollowUp
+    alt_after_statin_start: FollowUp
+
+
+class MeanSd(Strict):
+    mean: float
+    sd: float = Field(ge=0)
+
+
+class Line(Strict):
+    slope: float
+    intercept: float
+    sd: float = Field(ge=0)
+
+
+class FloatRange(Strict):
+    min: float
+    max: float
+
+    @model_validator(mode="after")
+    def _order(self) -> "FloatRange":
+        if self.max < self.min:
+            raise ValueError("max must not be below min")
+        return self
+
+
+class NtProBnpMedian(Strict):
+    no_heart_failure: float = Field(gt=0)
+    heart_failure: float = Field(gt=0)
+
+
+class LabModel(Strict):
+    egfr_at_age_30: float
+    egfr_drop_per_year_of_age: float
+    egfr_sd: float = Field(ge=0)
+    egfr_ckd_at_start: FloatRange
+    egfr_ckd_at_onset: FloatRange
+    egfr_ckd_yearly_drop: FloatRange
+    creatinine_cv: float = Field(ge=0)
+    potassium_mean: float
+    potassium_sd: float = Field(ge=0)
+    potassium_test_sd: float = Field(ge=0)
+    potassium_per_10_egfr_below_60: float
+    potassium_drug_effects: dict[str, float]  # drug class -> mmol/L
+    sodium_mean: float
+    sodium_test_sd: float = Field(ge=0)
+    sodium_diuretic_effect: float
+    hba1c_healthy: MeanSd
+    hba1c_diabetes: MeanSd
+    hba1c_metformin_effect: float
+    hba1c_insulin_effect: float
+    hba1c_test_sd: float = Field(ge=0)
+    drug_effect_days: int = Field(gt=0)
+    glucose_healthy: MeanSd
+    glucose_from_hba1c: Line
+    ldl_healthy: MeanSd
+    ldl_hyperlipidaemia: MeanSd
+    ldl_statin_reduction: float = Field(ge=0, lt=1)
+    ldl_test_sd: float = Field(ge=0)
+    alt_median: float = Field(gt=0)
+    alt_log_sd: float = Field(ge=0)
+    inr_off_warfarin: MeanSd
+    inr_on_warfarin: MeanSd
+    nt_probnp_median: NtProBnpMedian
+    nt_probnp_log_sd: float = Field(ge=0)
+
+
+class HyperkalaemiaLogOdds(Strict):
+    intercept: float
+    egfr_per_10_below_60: float
+    potassium_per_mmol_above_4_5: float
+    diabetes: float
+    age_per_10_years_above_60: float
+    combination: float
+    loop_or_thiazide: float
+
+
+class Hyperkalaemia(Strict):
+    window_days: int = Field(gt=0)
+    threshold: float
+    log_odds: HyperkalaemiaLogOdds
+
+
+class PerTest(Strict):
+    chance_per_test: float = Field(ge=0, le=1)
+    threshold: float
+
+
+class AltRise(Strict):
+    chance: float = Field(ge=0, le=1)
+    times_uln: float = Field(gt=1)
+
+
+class Interactions(Strict):
+    hyperkalaemia_after_raas_start: Hyperkalaemia
+    hypokalaemia_on_diuretic: PerTest
+    inr_above_4_on_warfarin: PerTest
+    alt_after_statin_start: AltRise
+
+
+# Names the generator's rules refer to directly.
+REQUIRED_DRUGS = (
+    "metformin",
+    "insulin_glargine",
+    "spironolactone",
+    "losartan",
+    "warfarin",
+)
+REQUIRED_TESTS = ("potassium", "sodium", "creatinine", "egfr", "alt", "inr")
+
+
 class Config(Strict):
     seed: int
     population: int = Field(gt=0)
@@ -154,6 +345,14 @@ class Config(Strict):
     departments: list[str]
     clinicians_per_department: int = Field(gt=0)
     visits: Visits
+    drugs: dict[str, Drug]
+    treatment: dict[str, list[TreatmentChoice]]  # condition -> choices
+    medication_rules: MedicationRules
+    lab_tests: dict[str, LabTest]
+    lab_panels: dict[str, list[str]]  # a condition, or no_condition/emergency/inpatient
+    lab_rules: LabRules
+    lab_model: LabModel
+    interactions: Interactions
 
     @model_validator(mode="after")
     def _cross_checks(self) -> "Config":
@@ -192,7 +391,39 @@ class Config(Strict):
             raise ValueError("the emergency department is not in departments")
         if self.visits.outpatient.default_department not in self.departments:
             raise ValueError("the outpatient default department is not in departments")
+        self._check_medicines_and_labs(names)
         return self
+
+    def _check_medicines_and_labs(self, conditions: list[str]) -> None:
+        classes = {d.drug_class for d in self.drugs.values()}
+        for condition, choices in self.treatment.items():
+            if condition not in conditions:
+                raise ValueError(f"treatment for unknown condition {condition}")
+            for choice in choices:
+                if unknown := set(choice.drugs) - set(self.drugs):
+                    raise ValueError(
+                        f"{condition} treatment names unknown drugs {sorted(unknown)}"
+                    )
+                if unknown := set(choice.unless) - classes:
+                    raise ValueError(
+                        f"{condition} treatment names unknown classes {sorted(unknown)}"
+                    )
+        if unknown := set(self.lab_model.potassium_drug_effects) - classes:
+            raise ValueError(
+                f"potassium_drug_effects names unknown classes {sorted(unknown)}"
+            )
+        needed = {*conditions, "no_condition", "emergency", "inpatient"}
+        if missing := needed - set(self.lab_panels):
+            raise ValueError(f"lab_panels is missing {sorted(missing)}")
+        for panel, tests in self.lab_panels.items():
+            if unknown := set(tests) - set(self.lab_tests):
+                raise ValueError(
+                    f"lab panel {panel} names unknown tests {sorted(unknown)}"
+                )
+        if missing := set(REQUIRED_DRUGS) - set(self.drugs):
+            raise ValueError(f"drugs must include {sorted(missing)}")
+        if missing := set(REQUIRED_TESTS) - set(self.lab_tests):
+            raise ValueError(f"lab_tests must include {sorted(missing)}")
 
 
 def load_config(path: Path = DEFAULT_CONFIG) -> Config:
