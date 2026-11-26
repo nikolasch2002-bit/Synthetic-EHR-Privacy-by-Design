@@ -16,6 +16,8 @@ class Part(IntEnum):
     # it would change every patient's values for that part.
     IDENTITY = 0
     DEMOGRAPHICS = 1
+    CONDITIONS = 2
+    DEATH = 3
 
 
 def patient_rng(seed: int, patient_id: int, part: Part) -> np.random.Generator:
