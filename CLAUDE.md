@@ -8,7 +8,7 @@ A portfolio project: a realistic but entirely fake electronic health record (pat
 
 **[docs/project-spec.md](docs/project-spec.md) is the source of truth.** It defines the scope (what is in and out), the design, the questions the project answers, and each deliverable with the test that proves it. Read the relevant section before building any part.
 
-Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D1 decided (Postgres + dbt) and D4 decided (a prediction model), both 2026-11-26; D2, D3 and D5 open.
+Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D1 (Postgres + dbt), D2 (six conditions, five interactions) and D4 (a prediction model) decided 2026-11-26; D3 and D5 open. Decisions sit in stacked pull requests (#3 onwards), merged in order once all are made.
 
 ## Lessons from earlier projects
 
