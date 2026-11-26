@@ -163,13 +163,7 @@ def write_dataset(
                     "encounter_diagnosis.csv", d.encounter_id, d.icd10, d.is_primary
                 )
             kidney = KidneyCourse(config, patient, history)
-            plan = draw_therapies(config, patient, history, kidney)
-            for o in orders_for(config, patient, plan):
-                # Repeat prescriptions are issued without a visit: no encounter.
-                tables.write(
-                    "medication_order.csv", o.order_id, o.patient_id, None, o.atc,
-                    o.dose, o.unit, o.frequency, o.start, o.stop,
-                )  # fmt: skip
+            plan = draw_therapies(config, patient, history)
             results, raas_starts = lab_maker.draw(
                 patient, history, kidney, plan, encounters, diagnoses
             )
@@ -181,6 +175,13 @@ def write_dataset(
                 tables.write(
                     "lab_result.csv", r.lab_order_id, r.value, r.unit, r.ref_low,
                     r.ref_high, r.resulted_at,
+                )  # fmt: skip
+            # After the labs: they may stop metformin early (interaction 4).
+            for o in orders_for(config, patient, plan):
+                # Repeat prescriptions are issued without a visit: no encounter.
+                tables.write(
+                    "medication_order.csv", o.order_id, o.patient_id, None, o.atc,
+                    o.dose, o.unit, o.frequency, o.start, o.stop,
                 )  # fmt: skip
             for s in raas_starts:
                 tables.write(

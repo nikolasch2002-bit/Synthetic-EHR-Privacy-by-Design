@@ -16,7 +16,6 @@ import numpy as np
 
 from generator.conditions import ClinicalHistory, random_day, years_after
 from generator.config import Config
-from generator.kidney import KidneyCourse
 from generator.patients import Patient
 from generator.streams import Part, patient_rng
 
@@ -68,6 +67,12 @@ class TherapyPlan:
             if t.start <= day <= t.stop
         }
 
+    def stop_early(self, therapy: Therapy, day: dt.date) -> None:
+        """End `therapy` on `day`, if that is before its planned stop."""
+        self.therapies[self.therapies.index(therapy)] = Therapy(
+            therapy.drug, therapy.start, min(therapy.stop, day)
+        )
+
     def started_on(self, drug: str, day: dt.date) -> dt.date | None:
         """When the therapy with `drug` that covers `day` began, if any."""
         for t in self.therapies:
@@ -84,7 +89,7 @@ def time_to_stop(rng: np.random.Generator, yearly_chance: float) -> float:
 
 
 def draw_therapies(
-    config: Config, patient: Patient, history: ClinicalHistory, kidney: KidneyCourse
+    config: Config, patient: Patient, history: ClinicalHistory
 ) -> TherapyPlan:
     rules = config.medication_rules
     rng = patient_rng(config.seed, patient.patient_id, Part.MEDICATIONS)
@@ -166,18 +171,6 @@ def draw_therapies(
             ):
                 add("spironolactone", day)
             year_start = years_after(year_start, 1)
-
-    # 4. Metformin stopped once eGFR falls below 30, in most patients.
-    below_30 = kidney.first_day_below(30, last)
-    if below_30 is not None:
-        stop_it = rng.random() < rules.metformin_stop_below_egfr_30
-        delay = dt.timedelta(days=int(rng.integers(0, 31)))
-        for t in list(therapies):
-            if stop_it and t.drug == "metformin" and t.start <= below_30 <= t.stop:
-                therapies.remove(t)
-                therapies.append(
-                    Therapy(t.drug, t.start, min(t.stop, below_30 + delay))
-                )
 
     return TherapyPlan(config, therapies)
 
