@@ -2,7 +2,7 @@
 
 > The source of truth. Written before any code. When building shows a part to be wrong, change it here and record why under [Changes to the spec](#changes-to-the-spec).
 
-Status: **draft, 2026-11-15; D1 and D4 decided 2026-11-26.** The decisions in [Open decisions](#open-decisions) are the owner's to make; each has a recommendation. Until they are made, the parts that depend on them are marked *(depends on D1)* and so on.
+Status: **draft, 2026-11-15; D1, D2 and D4 decided 2026-11-26.** The decisions in [Open decisions](#open-decisions) are the owner's to make; each has a recommendation. Until they are made, the parts that depend on them are marked *(depends on D1)* and so on.
 
 A realistic but entirely fake electronic health record (EHR): patients, visits, diagnoses, medications and lab results, generated in Python with `Faker` and explicit clinical rules. On top of it: a normalized source schema, analytical marts, a small app for cohorts, visit timelines and drug–lab interactions, and a governance pack that treats the fake data as if it were real.
 
@@ -62,7 +62,7 @@ The CV line: "Built a synthetic EHR generator with clinically plausible rules, a
 
 ## Clinical content
 
-The proposal below is the recommendation for **D2**; the owner chooses and adjusts it. Numbers are starting points to be checked against sources before they are written into the config.
+Decided 2026-11-26 (**D2**): all six conditions and all five interactions below ([ADR 0002](adr/0002-clinical-scope.md)). Prevalence rates and lab-value distributions are numbers in the config, checked against sources before they are written there (weeks 1–2).
 
 | Condition (ICD-10) | Medicines (ATC) | Labs it moves (LOINC) | Rule examples |
 | --- | --- | --- | --- |
@@ -87,6 +87,8 @@ Planting the effects at known rates gives the analytics a correct answer to chec
 
 Interaction 1 is planted as a formula, not a single rate, so the model has something to learn: the chance of hyperkalaemia after a start rises with lower eGFR, higher baseline potassium, diabetes, older age and the ACE inhibitor/ARB + spironolactone combination, and falls with a loop or thiazide diuretic. Each effect's strength (a log-odds coefficient) is written in the config, so the true answer is known.
 
+Follow-up testing is planted too: after a RAAS-inhibitor start, potassium is measured within 30 days at a configured rate, below 100%, because guidelines recommend the check but it does not always happen. The unmeasured starts are what the prediction model leaves out and counts.
+
 ## Prediction model
 
 Decided 2026-11-26 (D4). It is included to learn the machine-learning workflow for future projects. It is a statistical model, and the project calls it one.
@@ -95,9 +97,9 @@ Decided 2026-11-26 (D4). It is included to learn the machine-learning workflow f
 
 | Part | Definition |
 | --- | --- |
-| One row per… | start of a RAAS inhibitor: the index date. *Proposed:* a start is an order with no order of the same class in the 180 days before |
+| One row per… | start of a RAAS inhibitor: the index date. A start is an order with no order of the same class in the 180 days before (a "new user" definition; decided with D2) |
 | Features | Known before the index date only: age, sex, the most recent eGFR and potassium in the 365 days before (with a "missing" flag), diabetes, heart failure, CKD, the combination on the index date, a loop or thiazide diuretic on the index date |
-| Outcome | Any potassium ≥ 5.5 mmol/L on days 1–30 after the index date. *Proposed:* starts with no potassium measured in that window are left out, and counted in the results |
+| Outcome | Any potassium ≥ 5.5 mmol/L on days 1–30 after the index date. Starts with no potassium measured in that window are left out, and counted in the results (decided with D2). Not measured is not the same as normal |
 | Baseline | A rule score, one point each for eGFR < 45, baseline K⁺ > 5.0, the combination, diabetes, age ≥ 75. Labelled as invented for this project |
 | Model | Logistic regression (scikit-learn), standardized features. Its coefficients can be read and explained |
 
@@ -276,7 +278,7 @@ The owner decides these; each has options and a recommendation.
 | # | Decision | Options | Recommendation |
 | --- | --- | --- | --- |
 | D1 | Database and transforms | (a) Postgres + dbt; (b) Postgres + plain SQL; (c) DuckDB + dbt | **Decided 2026-11-26: (a)**: Postgres has the roles and row-level security that the access-control design needs; dbt brings tests, docs and lineage that analytics jobs ask for. See [ADR 0001](adr/0001-postgres-and-dbt.md) |
-| D2 | Clinical scope | The six conditions and five interactions above, or fewer / different ones | **The six above**: they share labs (potassium, creatinine), so the interactions arise naturally. Cut to four if time runs short |
+| D2 | Clinical scope | (a) The six conditions and five interactions above; (b) the four cardio-renal-metabolic conditions only; (c) a changed list | **Decided 2026-11-26: (a)**: they share labs (potassium, creatinine), so the interactions arise naturally, and five kinds of drug–lab problem give the app variety. Also decided: a start is a first order in 180 days; starts with no potassium measured in 30 days are left out and counted. See [ADR 0002](adr/0002-clinical-scope.md) |
 | D3 | App | (a) Streamlit with a role switcher; (b) FastAPI with token-scoped roles + a minimal front end; (c) both | **(a)**: one deployable app, free hosting; the role switcher shows the same screen giving different answers to different roles. (b) shows more software engineering but doubles the work |
 | D4 | Risk score | (a) CHA₂DS₂-VASc for the AF patients (a published rule); (b) an own "medication safety" score from eGFR, potassium, interacting drugs and age; (c) both; (d) a prediction model with a rule baseline | **Decided 2026-11-26: (d)**, a logistic regression for hyperkalaemia after a RAAS-inhibitor start, against a rule score. See [Prediction model](#prediction-model). (The recommendation was (a).) |
 | D5 | Population and setting | Size (e.g. 5,000 patients default, scalable); Faker locale (e.g. `nl_NL`, `en_GB`) | **5,000 patients, a European locale**: fits a free hosted database and suits a GDPR story |
