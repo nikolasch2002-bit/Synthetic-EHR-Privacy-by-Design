@@ -142,7 +142,7 @@ One representative medicine per class: metformin (A10BA02), insulin glargine (A1
 - One order covers 90 days and is repeated until the therapy stops: 5% a year stop, and at death or the end of the history.
 - Spironolactone is added in heart failure, 8% a year, on top of an ACE inhibitor or ARB.
 - An ACE inhibitor is replaced by losartan within 2 years in 10% (cough).
-- Metformin is stopped within 30 days once eGFR falls below 30, in 70%; 30% continue (interaction 4).
+- Metformin: at the first eGFR **result** below 30 during a metformin therapy, 70% stop within 30 days; 30% continue (interaction 4). Decided on the result, as a doctor would (changed in week 5; it was first decided on the true eGFR, which question 3 showed to be wrong).
 - A medicine is never started twice at once. Repeat prescriptions have no visit (`encounter_id` empty).
 - *Note:* Dutch practice uses acenocoumarol more than warfarin; the spec names warfarin, so the data does.
 
@@ -165,13 +165,13 @@ Ten tests, with typical Dutch adult reference ranges: potassium, sodium, creatin
 | 1 | Hyperkalaemia (K⁺ ≥ 5.5) within 30 days of a RAAS-inhibitor start | Once per start, chance from the formula below. If it happens, every potassium in days 1–30 is ≥ 5.5; if not, none is |
 | 2 | Hypokalaemia (K⁺ < 3.5) on a loop or thiazide diuretic | 8% of potassium tests on a diuretic (outside interaction 1's windows); the rest ≥ 3.5 |
 | 3 | INR > 4 on warfarin | 8% of INR tests on warfarin; the rest 1.0–4.0 |
-| 4 | Metformin continued with eGFR < 30 | 30% of metformin users whose eGFR falls below 30 |
+| 4 | Metformin continued with eGFR < 30 | At the first eGFR result below 30 during a metformin therapy: 30% continue, 70% stop within 30 days |
 | 5 | ALT > 3 × upper limit after a statin start | 2% of statin starts, in the first 12 weeks on the statin |
 
 A **start** is an order with no order of the same class (ACE inhibitor, ARB, spironolactone) in the 180 days before, counted from 180 days after the history starts.
 
 **Interaction 1's formula**, the truth the prediction model should recover. Log-odds = −3.4 + 0.30 × (eGFR below 60, per 10) + 1.20 × (potassium − 4.5) + 0.50 × diabetes + 0.25 × (age − 60, per 10 years) + 1.00 × ACE inhibitor or ARB with spironolactone − 0.70 × loop or thiazide diuretic. eGFR and potassium are the most recent results in the 365 days before the start, as the model will see them (the true level if none).
 
-**Outcome counts** (full run, 40,000 patients, seed 20261126): 4,251 RAAS starts from 2017; potassium measured within 30 days after 3,064 (72%); 169 observed hyperkalaemia events, so about 118 in a 70% training set.
+**Outcome counts** (full run, 40,000 patients, seed 20261126, after the week 4 and 5 fixes): 4,251 RAAS starts from 2017; potassium measured within 30 days after 3,064 (72%); 175 observed hyperkalaemia events, so about 122 in a 70% training set (`marts.fact_raas_start`).
 
 What the generator planted is written to `data/truth/raas_start.csv` (never loaded into the database), so tests can check the analysis finds exactly that.
