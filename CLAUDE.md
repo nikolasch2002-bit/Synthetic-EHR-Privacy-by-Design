@@ -8,7 +8,7 @@ A portfolio project: a realistic but entirely fake electronic health record (pat
 
 **[docs/project-spec.md](docs/project-spec.md) is the source of truth.** It defines the scope (what is in and out), the design, the questions the project answers, and each deliverable with the test that proves it. Read the relevant section before building any part.
 
-Current state: spec drafted (decisions D1–D5 open); starter template copied; CI being set up (milestone week 0).
+Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D4 decided (a prediction model, 2026-11-26); D1, D2, D3 and D5 open.
 
 ## Lessons from earlier projects
 
@@ -31,7 +31,8 @@ Read [docs/lessons-learned.md](docs/lessons-learned.md) before planning: section
 
 - **Data:** every row is generated from a seed; no real person's data is ever used or read. The generated dataset is not committed (it is regenerated from the seed); a small test sample (≤ 50 patients) may be. Identifiers live only in the identity schema; the public app reads only aggregates after small-cell suppression. Generated data may be shown in an AI chat. The full table is in the spec's "Data" section.
 - **Identifiers:** every invented identifier uses a format no real person can have (prefix `SYN-`). Never use Faker's national ID generators.
-- **Out of scope:** machine learning or prediction (the risk score is a rule and is called a rule); synthetic data derived from real data; free-text notes, imaging, vital signs, microbiology, billing; FHIR, HL7 v2, OMOP; real authentication; clinical validity.
+- **Prediction model:** one logistic regression for hyperkalaemia after a RAAS-inhibitor start, against a rule baseline (spec, "Prediction model"). Call it a statistical model, and never claim it works on real patients: it learns the generator, not medicine. Features must come from before the index date.
+- **Out of scope:** any other model, deep learning; synthetic data derived from real data; free-text notes, imaging, vital signs, microbiology, billing; FHIR, HL7 v2, OMOP; real authentication; clinical validity.
 - **Secrets:** `.env` and `.streamlit/secrets.toml` (the pseudonymization key and database connection strings will live there). They are gitignored and denied to the assistant in `.claude/settings.json`.
 
 ## Commands
