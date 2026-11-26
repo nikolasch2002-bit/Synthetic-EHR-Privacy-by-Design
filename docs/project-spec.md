@@ -2,13 +2,13 @@
 
 > The source of truth. Written before any code. When building shows a part to be wrong, change it here and record why under [Changes to the spec](#changes-to-the-spec).
 
-Status: **draft, 2026-11-15.** The decisions in [Open decisions](#open-decisions) are the owner's to make; each has a recommendation. Until they are made, the parts that depend on them are marked *(depends on D1)* and so on.
+Status: **draft, 2026-11-15; D4 decided 2026-11-26.** The decisions in [Open decisions](#open-decisions) are the owner's to make; each has a recommendation. Until they are made, the parts that depend on them are marked *(depends on D1)* and so on.
 
 A realistic but entirely fake electronic health record (EHR): patients, visits, diagnoses, medications and lab results, generated in Python with `Faker` and explicit clinical rules. On top of it: a normalized source schema, analytical marts, a small app for cohorts, visit timelines and drug–lab interactions, and a governance pack that treats the fake data as if it were real.
 
 ## What this proves
 
-The CV line: "Built a synthetic EHR generator with clinically plausible rules, a normalized and an analytical schema, and a cohort-exploration app, designed privacy-by-design: pseudonymization, role-based access, small-cell suppression, a data dictionary and a DPIA-style assessment, each with a test that runs in CI."
+The CV line: "Built a synthetic EHR generator with clinically plausible rules, a normalized and an analytical schema, and a cohort-exploration app, designed privacy-by-design: pseudonymization, role-based access, small-cell suppression, a data dictionary and a DPIA-style assessment, each with a test that runs in CI; and a hyperkalaemia prediction model, compared with a rule baseline and checked against the effects planted in the data."
 
 | Claim | Where the proof lives |
 | --- | --- |
@@ -18,6 +18,7 @@ The CV line: "Built a synthetic EHR generator with clinically plausible rules, a
 | Builds privacy in from the start (GDPR Art. 25), and can prove it | `governance/`: pseudonymization, access control, suppression, each with a test that is shown to fail when the control is removed |
 | Follows a software development life cycle on purpose | Spec → ADRs → issues → pull requests → CI → tagged releases with a changelog, all visible in the repository |
 | Can write the documents a privacy officer asks for | `governance/data-dictionary.md`, `governance/dpia.md`, `governance/access-control.md`, `governance/pseudonymization.md` |
+| Knows the machine-learning workflow and its traps | `ml/`: split by patient, a leakage test, a rule baseline, evaluation on held-out data, and a test that the model recovers the planted effects; `governance/model-card.md` |
 
 ## Data
 
@@ -45,19 +46,19 @@ The CV line: "Built a synthetic EHR generator with clinically plausible rules, a
 2. **Clinical rules** that make the data plausible: conditions drive medicines, medicines and conditions drive lab values, visits follow condition burden, nobody has a visit after death. The rule set is in [Clinical content](#clinical-content).
 3. **Source schema `ehr`**: normalized (3NF), with primary and foreign keys and check constraints, the way an EHR records care.
 4. **Analytical marts**: a star schema built from `ehr`, pseudonymized, for cohort and interaction questions.
-5. **A rule-based risk score**, computed in SQL and documented as a published or written rule, not as a model *(depends on D4)*.
-6. **An app** *(depends on D3)*: cohort builder, patient visit timeline, drug–lab interaction view, risk score distribution.
+5. ~~**A rule-based risk score**, computed in SQL and documented as a published or written rule, not as a model *(depends on D4)*.~~ **A prediction model with a rule baseline** (`ml/`): the chance of hyperkalaemia after starting a drug that raises potassium, from logistic regression, compared with a simple rule score. See [Prediction model](#prediction-model). (See [Changes to the spec](#changes-to-the-spec).)
+6. **An app** *(depends on D3)*: cohort builder, patient visit timeline, drug–lab interaction view, ~~risk score distribution~~ the rule score's and the model's performance, as aggregates.
 7. **Governance pack** (`governance/`): data dictionary, pseudonymization approach, access control design, DPIA-style checklist, Art. 25 mapping, threat model.
 8. **SDLC evidence**: ADRs, issues and pull requests, CI, tagged releases, a changelog.
 
 ### Out (say so in the README)
 
-- Machine learning or prediction. The risk score is a transparent rule and is called a rule.
+- ~~Machine learning or prediction. The risk score is a transparent rule and is called a rule.~~ Moved into scope as one model (see [Changes to the spec](#changes-to-the-spec)). Still out: any other model, deep learning, and any claim that the model works on real patients.
 - Generating synthetic data *from* real data (GANs, Synthea-style models fitted to real records). This project's data comes from rules only, which is why it carries no re-identification risk.
 - Free-text clinical notes, imaging, vital signs, microbiology, billing.
 - Interoperability standards beyond codes: no FHIR server, no HL7 v2, no OMOP mapping. The README names them and says why they are out (scope).
 - Real authentication with passwords or single sign-on. The app's roles are demonstrated with a role switcher over database roles *(depends on D3)*.
-- Clinical validity. The data is plausible, not accurate; nothing here is clinical advice. The risk score must say so on screen.
+- Clinical validity. The data is plausible, not accurate; nothing here is clinical advice. The rule score and the model must say so on screen.
 
 ## Clinical content
 
@@ -83,6 +84,37 @@ Conditions co-occur at configured rates (e.g. diabetes with hypertension and CKD
 5. ALT > 3× upper limit after a statin starts.
 
 Planting the effects at known rates gives the analytics a correct answer to check against: the query must find what the generator put in.
+
+Interaction 1 is planted as a formula, not a single rate, so the model has something to learn: the chance of hyperkalaemia after a start rises with lower eGFR, higher baseline potassium, diabetes, older age and the ACE inhibitor/ARB + spironolactone combination, and falls with a loop or thiazide diuretic. Each effect's strength (a log-odds coefficient) is written in the config, so the true answer is known.
+
+## Prediction model
+
+Decided 2026-11-26 (D4). It is included to learn the machine-learning workflow for future projects. It is a statistical model, and the project calls it one.
+
+**The question.** A patient starts a RAAS inhibitor: an ACE inhibitor, an ARB or spironolactone (drugs acting on the renin–angiotensin–aldosterone system, all of which can raise potassium). What is the chance of hyperkalaemia (K⁺ ≥ 5.5 mmol/L) within 30 days?
+
+| Part | Definition |
+| --- | --- |
+| One row per… | start of a RAAS inhibitor: the index date. *Proposed:* a start is an order with no order of the same class in the 180 days before |
+| Features | Known before the index date only: age, sex, the most recent eGFR and potassium in the 365 days before (with a "missing" flag), diabetes, heart failure, CKD, the combination on the index date, a loop or thiazide diuretic on the index date |
+| Outcome | Any potassium ≥ 5.5 mmol/L on days 1–30 after the index date. *Proposed:* starts with no potassium measured in that window are left out, and counted in the results |
+| Baseline | A rule score, one point each for eGFR < 45, baseline K⁺ > 5.0, the combination, diabetes, age ≥ 75. Labelled as invented for this project |
+| Model | Logistic regression (scikit-learn), standardized features. Its coefficients can be read and explained |
+
+**Steps, each with its proof:**
+
+1. **Build the cohort** from the pseudonymized marts, as the `researcher` role. Test: every feature's date is before the index date (the leakage test). Shown to fail by adding a feature taken after the index date.
+2. **Split by patient**, 70/30, with a seed. A patient with several starts stays on one side. Test: no pseudonym appears in both sets.
+3. **Score the baseline** on the test set.
+4. **Fit the model** on the training set only. Test: the same seed gives the same coefficients.
+5. **Evaluate on the test set only:** AUROC (how well it ranks patients by risk), a calibration plot (whether a predicted 20% happens about 20% of the time) and the Brier score, for the model and the baseline, with the number of starts and events.
+6. **Check against the truth:** each planted effect's sign is right, and its fitted odds ratio is within a stated tolerance of the planted one.
+
+**Enough data.** About 10 events per feature is a common minimum, so the training set needs at least 100 events. The population size (D5) must give that; check it after the first generation, and raise the population if not.
+
+**Honest limits, said in the README and the model card.** The data comes from this project's own rules, so the model learns the generator, not medicine. Its scores say nothing about real patients. That is also why step 6 is possible: on real data the true effects are unknown.
+
+**Privacy.** Predictions are per patient, so they stay in the pseudonymized marts that only `researcher` reads. The public app shows performance as aggregates only, after small-cell suppression.
 
 ## Architecture
 
@@ -121,7 +153,8 @@ State the grain in one sentence before writing SQL.
 | `fact_lab_result` | lab result | value, abnormal flag | patient, lab test, date, encounter |
 | `fact_medication_exposure` | continuous period a patient takes one drug | days exposed | patient, drug, start date, stop date |
 | `fact_drug_lab_event` | lab result that falls inside an exposure window of a drug linked to that test | value, days since drug start, rule triggered | patient, drug, lab test, date |
-| `fact_risk_score` | patient on the reference date | score, components | patient |
+| ~~`fact_risk_score`~~ | ~~patient on the reference date~~ | ~~score, components~~ | ~~patient~~ |
+| `fact_raas_start` | start of a RAAS inhibitor (the index date) | the model's features, rule score, predicted probability, outcome (hyperkalaemia within 30 days) | patient, drug, date |
 
 | Dimension | Attributes | Note |
 | --- | --- | --- |
@@ -138,9 +171,10 @@ State the grain in one sentence before writing SQL.
 2. What does one patient's history look like on a timeline: visits, diagnoses, drugs, labs?
 3. For each drug–lab rule above: how many exposures, how many events, at what rate, and how soon after the drug started?
 4. Which patients are on two interacting drugs at once, and what happened to their potassium?
-5. How is the risk score distributed, and how does it differ by condition?
+5. ~~How is the risk score distributed, and how does it differ by condition?~~ How well do the rule score and the model predict hyperkalaemia after a RAAS-inhibitor start, and does the model beat the rule?
 6. How does HbA1c change in the year after metformin starts?
 7. Data quality: orphan rows, values outside physiological limits, visits after death. Expected to be zero, and tested.
+8. Does the model recover the effects the generator planted, and how close are its odds ratios to the planted ones?
 
 Before building the marts, outline each question's SQL against them, and look for anything the model is missing.
 
@@ -154,6 +188,7 @@ Before building the marts, outline each question's SQL against them, and look fo
 | Database | *(D1)* PostgreSQL 16: local in Docker, hosted on a free tier | Roles, row-level security and views are the access-control story; DuckDB has no roles |
 | Transform | *(D1)* dbt-core with dbt-postgres, or plain SQL scripts | dbt gives tests and lineage; plain SQL is less to learn |
 | App | *(D3)* Streamlit on Streamlit Community Cloud, or FastAPI | See D3 |
+| Prediction model | scikit-learn (logistic regression, metrics, calibration), pandas, matplotlib for the plots | The standard Python ML library; logistic regression gives readable coefficients to compare with the planted ones |
 | Tests | pytest, plus dbt tests if dbt is chosen | |
 | Lint and secrets | ruff, sqlfluff, gitleaks in pre-commit and CI | From the starter |
 | CI | GitHub Actions, actions pinned to commit hashes | From the starter |
@@ -174,6 +209,7 @@ Built as if the data were real patients' data. Say that sentence in the README.
 | `governance/privacy-by-design.md` | Art. 25 mapping: each principle in Art. 5 (minimization, purpose limitation, storage limitation, integrity) → what the system does → where | Each row links to code or a test |
 | `governance/threat-model.md` | STRIDE table over the trust boundaries above, and what changes with real data | Each claim checked against the running system |
 | Secrets hygiene | `.env.example`, gitleaks in pre-commit and CI, the pseudonymization key never in the repository | CI fails on a planted fake key on a throwaway branch |
+| `governance/model-card.md` | Intended use (learning and demonstration only, not clinical use), training data and its limits, features, metrics with counts, the planted-effect check, and the regulatory position: a model learned from data is likely an "AI system" under the EU AI Act (Art. 3(1)), unlike a rule written by hand (*to verify against the Act's text before it is written*) | Every number in it comes from the evaluation run, which writes them to a file the card links to |
 
 The DPIA and the GDPR texts are drafts until the owner rewrites them. They describe what the law asks and what the system does; they are not legal advice. Cite article numbers.
 
@@ -186,6 +222,7 @@ The DPIA and the GDPR texts are drafts until the owner rewrites them. They descr
 | Planted interactions are found | Each drug–lab rule's rate in the marts within tolerance of the configured rate |
 | Clinically consistent | No visit after death or before birth; no drug before its indication's onset; lab values within physiological limits; HbA1c higher in diabetics than in others |
 | No real identifiers | Every MRN matches the `SYN-` pattern; no national-ID-format numbers anywhere |
+| The model learns what was planted | Each planted hyperkalaemia effect is recovered with the right sign, and its odds ratio within tolerance (see [Prediction model](#prediction-model)) |
 
 ## Repository layout (target)
 
@@ -201,7 +238,8 @@ synthetic-ehr-privacy-by-design/
 ├── security/                roles.sql, row-level security, audit
 ├── app/                     the app (D3)
 ├── analytics/               the questions as .sql files + RESULTS.md
-├── governance/              data dictionary, pseudonymization, access control, DPIA, Art. 25, threat model
+├── ml/                      cohort, split, baseline, model, evaluation + results
+├── governance/              data dictionary, pseudonymization, access control, DPIA, Art. 25, threat model, model card
 ├── docs/                    project-spec.md, data-model.md, clinical-rules.md, architecture.md, adr/, lessons-learned.md
 ├── tests/
 ├── .github/                 workflows/ci.yml, dependabot.yml, pull request template
@@ -210,11 +248,11 @@ synthetic-ehr-privacy-by-design/
 └── pyproject.toml
 ```
 
-README, top to bottom: one-line pitch and badges; "every row is fake, and it is protected as if it were real"; screenshot and link to the app; architecture diagram; what it answers; the governance pack as a table of links; run it yourself in five commands; decisions (links to ADRs); licences of the code sets.
+README, top to bottom: one-line pitch and badges; "every row is fake, and it is protected as if it were real"; screenshot and link to the app; architecture diagram; what it answers; the prediction model, its results and "it learns the generator, not medicine"; the governance pack as a table of links; run it yourself in five commands; decisions (links to ADRs); licences of the code sets.
 
 ## Milestones
 
-Start date: *to be set by the owner.* About 8 weeks at 10–15 hours a week. Each week ends in something a stranger can see.
+Start date: *to be set by the owner.* About ~~8~~ 9 weeks at 10–15 hours a week. Each week ends in something a stranger can see.
 
 | Week | Ends with |
 | --- | --- |
@@ -223,10 +261,11 @@ Start date: *to be set by the owner.* About 8 weeks at 10–15 hours a week. Eac
 | 2 | Medicines and labs with the clinical rules; plausibility tests pass |
 | 3 | `ehr` schema loaded locally; constraints hold; data dictionary test passes |
 | 4 | Marts and pseudonymization; questions 1, 6 and 7 answered |
-| 5 | Drug–lab events and the risk score; planted-rate tests pass |
-| 6 | Roles, row-level security, suppression, audit, each with its failing-then-passing test; hosted database |
-| 7 | App deployed to a public URL |
-| 8 | Governance pack checked against the running system; README; release `v1.0.0` |
+| 5 | Drug–lab events and the ~~risk score~~ rule baseline score; planted-rate tests pass |
+| 6 | Prediction model: cohort, split, baseline, model, evaluation; leakage, split and recovery tests pass; model card drafted |
+| 7 | Roles, row-level security, suppression, audit, each with its failing-then-passing test; hosted database |
+| 8 | App deployed to a public URL |
+| 9 | Governance pack checked against the running system; README; release `v1.0.0` |
 
 ## Open decisions
 
@@ -237,10 +276,11 @@ The owner decides these; each has options and a recommendation.
 | D1 | Database and transforms | (a) Postgres + dbt; (b) Postgres + plain SQL; (c) DuckDB + dbt | **(a)**: Postgres has the roles and row-level security that the access-control design needs; dbt brings tests, docs and lineage that analytics jobs ask for |
 | D2 | Clinical scope | The six conditions and five interactions above, or fewer / different ones | **The six above**: they share labs (potassium, creatinine), so the interactions arise naturally. Cut to four if time runs short |
 | D3 | App | (a) Streamlit with a role switcher; (b) FastAPI with token-scoped roles + a minimal front end; (c) both | **(a)**: one deployable app, free hosting; the role switcher shows the same screen giving different answers to different roles. (b) shows more software engineering but doubles the work |
-| D4 | Risk score | (a) CHA₂DS₂-VASc for the AF patients (a published rule); (b) an own "medication safety" score from eGFR, potassium, interacting drugs and age; (c) both | **(a) first**: a published rule is defensible in an interview and testable against its definition. Add (b) if time allows, clearly labelled as invented |
+| D4 | Risk score | (a) CHA₂DS₂-VASc for the AF patients (a published rule); (b) an own "medication safety" score from eGFR, potassium, interacting drugs and age; (c) both; (d) a prediction model with a rule baseline | **Decided 2026-11-26: (d)**, a logistic regression for hyperkalaemia after a RAAS-inhibitor start, against a rule score. See [Prediction model](#prediction-model). (The recommendation was (a).) |
 | D5 | Population and setting | Size (e.g. 5,000 patients default, scalable); Faker locale (e.g. `nl_NL`, `en_GB`) | **5,000 patients, a European locale**: fits a free hosted database and suits a GDPR story |
 
 ## Changes to the spec
 
 | Date | What changed | Why |
 | --- | --- | --- |
+| 2026-11-26 | Machine learning moves from out of scope to in scope, as one model: logistic regression predicting hyperkalaemia within 30 days of a RAAS-inhibitor start, compared with a rule baseline. Replaces the rule-based risk score (`fact_risk_score` becomes `fact_raas_start`), adds the [Prediction model](#prediction-model) section, question 8, a model card, a generator proof, `ml/`, and a week to the milestones (8 → 9) | Decided by the project owner (D4), to learn the machine-learning workflow for future projects. The target uses only data the generator already makes, so the clinical scope (D2) is unchanged. The original brief's "without calling it AI" no longer fits a model learned from data, so the project calls it a statistical model and says what it can and cannot show |
