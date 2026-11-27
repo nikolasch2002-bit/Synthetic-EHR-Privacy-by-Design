@@ -1,0 +1,7 @@
+# What the hosted app needs, and nothing more: Streamlit Community Cloud
+# installs from this file, next to the entry file. Pinned to the versions in
+# uv.lock; tests/test_app.py checks they match.
+streamlit==1.67.0
+psycopg[binary]==3.3.9
+pandas==3.1.1
+python-dotenv==1.2.4
