@@ -1,0 +1,218 @@
+{
+  "counts": {
+    "patients": 2889,
+    "starts_left_out_not_measured": 1187,
+    "starts_measured": 3064,
+    "test_events": 44,
+    "test_starts": 920,
+    "train_events": 131,
+    "train_starts": 2144
+  },
+  "model": {
+    "coefficients": {
+      "age_per_10_years_above_60": 0.2928,
+      "ckd": -0.3985,
+      "combination": 0.8722,
+      "diabetes": 0.8066,
+      "egfr_missing": 0.3229,
+      "egfr_per_10_below_60": 0.2969,
+      "female": 0.1793,
+      "heart_failure": 0.0447,
+      "loop_or_thiazide": -0.8088,
+      "potassium_missing": -0.313,
+      "potassium_per_mmol_above_4_5": 1.3568
+    },
+    "intercept": -3.4468
+  },
+  "recovery": {
+    "confidence": 0.99,
+    "features": {
+      "age_per_10_years_above_60": {
+        "fitted_log_odds": 0.2928,
+        "fitted_odds_ratio": 1.3402,
+        "odds_ratio_interval": [
+          1.0475,
+          1.7146
+        ],
+        "planted_log_odds": 0.25,
+        "planted_odds_ratio": 1.284,
+        "sign_right": true,
+        "standard_error": 0.0956,
+        "within_interval": true
+      },
+      "ckd": {
+        "fitted_log_odds": -0.3985,
+        "fitted_odds_ratio": 0.6713,
+        "odds_ratio_interval": [
+          0.2959,
+          1.5229
+        ],
+        "planted_log_odds": 0.0,
+        "planted_odds_ratio": 1.0,
+        "sign_right": true,
+        "standard_error": 0.318,
+        "within_interval": true
+      },
+      "combination": {
+        "fitted_log_odds": 0.8722,
+        "fitted_odds_ratio": 2.3922,
+        "odds_ratio_interval": [
+          1.0035,
+          5.7029
+        ],
+        "planted_log_odds": 1.0,
+        "planted_odds_ratio": 2.7183,
+        "sign_right": true,
+        "standard_error": 0.3373,
+        "within_interval": true
+      },
+      "diabetes": {
+        "fitted_log_odds": 0.8066,
+        "fitted_odds_ratio": 2.2403,
+        "odds_ratio_interval": [
+          1.2782,
+          3.9267
+        ],
+        "planted_log_odds": 0.5,
+        "planted_odds_ratio": 1.6487,
+        "sign_right": true,
+        "standard_error": 0.2179,
+        "within_interval": true
+      },
+      "egfr_missing": {
+        "fitted_log_odds": 0.3229,
+        "fitted_odds_ratio": 1.3811,
+        "odds_ratio_interval": [
+          0.4603,
+          4.1437
+        ],
+        "planted_log_odds": 0.0,
+        "planted_odds_ratio": 1.0,
+        "sign_right": true,
+        "standard_error": 0.4265,
+        "within_interval": true
+      },
+      "egfr_per_10_below_60": {
+        "fitted_log_odds": 0.2969,
+        "fitted_odds_ratio": 1.3456,
+        "odds_ratio_interval": [
+          1.0529,
+          1.7197
+        ],
+        "planted_log_odds": 0.3,
+        "planted_odds_ratio": 1.3499,
+        "sign_right": true,
+        "standard_error": 0.0952,
+        "within_interval": true
+      },
+      "female": {
+        "fitted_log_odds": 0.1793,
+        "fitted_odds_ratio": 1.1964,
+        "odds_ratio_interval": [
+          0.7239,
+          1.9772
+        ],
+        "planted_log_odds": 0.0,
+        "planted_odds_ratio": 1.0,
+        "sign_right": true,
+        "standard_error": 0.195,
+        "within_interval": true
+      },
+      "heart_failure": {
+        "fitted_log_odds": 0.0447,
+        "fitted_odds_ratio": 1.0457,
+        "odds_ratio_interval": [
+          0.4566,
+          2.3953
+        ],
+        "planted_log_odds": 0.0,
+        "planted_odds_ratio": 1.0,
+        "sign_right": true,
+        "standard_error": 0.3217,
+        "within_interval": true
+      },
+      "loop_or_thiazide": {
+        "fitted_log_odds": -0.8088,
+        "fitted_odds_ratio": 0.4454,
+        "odds_ratio_interval": [
+          0.2284,
+          0.8686
+        ],
+        "planted_log_odds": -0.7,
+        "planted_odds_ratio": 0.4966,
+        "sign_right": true,
+        "standard_error": 0.2593,
+        "within_interval": true
+      },
+      "potassium_missing": {
+        "fitted_log_odds": -0.313,
+        "fitted_odds_ratio": 0.7312,
+        "odds_ratio_interval": [
+          0.2407,
+          2.2209
+        ],
+        "planted_log_odds": 0.0,
+        "planted_odds_ratio": 1.0,
+        "sign_right": true,
+        "standard_error": 0.4313,
+        "within_interval": true
+      },
+      "potassium_per_mmol_above_4_5": {
+        "fitted_log_odds": 1.3568,
+        "fitted_odds_ratio": 3.8837,
+        "odds_ratio_interval": [
+          1.9098,
+          7.8977
+        ],
+        "planted_log_odds": 1.2,
+        "planted_odds_ratio": 3.3201,
+        "sign_right": true,
+        "standard_error": 0.2756,
+        "within_interval": true
+      }
+    }
+  },
+  "seed": 20261126,
+  "split": {
+    "by": "patient",
+    "test_share": 0.3
+  },
+  "test_set": {
+    "baseline": {
+      "auroc": 0.7351,
+      "brier": 0.0431,
+      "calibration": {
+        "observed": [
+          0.0187,
+          0.0458,
+          0.1292
+        ],
+        "predicted": [
+          0.0233,
+          0.0706,
+          0.151
+        ]
+      }
+    },
+    "model": {
+      "auroc": 0.7662,
+      "brier": 0.0397,
+      "calibration": {
+        "observed": [
+          0.0215,
+          0.0164,
+          0.0269,
+          0.0331,
+          0.1413
+        ],
+        "predicted": [
+          0.014,
+          0.0254,
+          0.0366,
+          0.055,
+          0.1608
+        ]
+      }
+    }
+  }
+}

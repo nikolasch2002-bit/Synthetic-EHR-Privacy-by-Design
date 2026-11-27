@@ -161,6 +161,21 @@ One row per patient: the link between the internal ID and the pseudonym, written
 | `patient_id` | integer | Internal patient key | an existing patient | quasi-identifier |
 | `pseudonym` | text | HMAC-SHA-256 of the patient ID, keyed | `SYN-P-` and 16 hex characters; unique | quasi-identifier (pseudonymous) |
 
+## Schema `ml`
+
+### `ml.raas_start_prediction`
+
+One row per RAAS-inhibitor start with potassium measured: the prediction model's and the rule baseline's probabilities, written by `python -m ml`. Per start, so it stays in the database, never in the repository. Read by: `researcher`, `data_steward`.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `pseudonym` | text | The patient | a `dim_patient` | quasi-identifier (pseudonymous) |
+| `drug_class` | text | Class started | `ace_inhibitor`, `arb`, `mra` | health data |
+| `index_date` | date | The start date | from 2017-01-01 | health data |
+| `split` | text | Which set the start was in | `train`, `test` | none |
+| `model_probability` | numeric | The model's chance of hyperkalaemia in 30 days | 0–1 | health data |
+| `baseline_probability` | numeric | The rule score's chance (training event rate at that score) | 0–1 | health data |
+
 ## Schema `marts`
 
 The analytical star schema, built by dbt. Pseudonymized: no names, MRNs, exact birth dates, addresses, or source keys that encode a patient ID; row keys are new, numbered in pseudonym order. Still personal data under the GDPR (pseudonymous data, Recital 26), because the steward can re-link it. Read by: `researcher`, `data_steward`; not by `public_app`, which reads only the suppressed aggregates (from week 7).

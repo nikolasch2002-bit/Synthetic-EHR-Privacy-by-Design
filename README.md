@@ -37,3 +37,11 @@ python -m uv run python -m analytics        # writes analytics/RESULTS.md
 ```
 
 `transform` needs `PSEUDONYM_KEY` in `.env`: 64 hex characters, e.g. from `python -c "import secrets; print(secrets.token_hex(32))"`. It computes each patient's pseudonym (HMAC-SHA-256) in Python and writes only the link to `ehr_link`; the key never reaches the database or dbt's files. The marts are in [dbt/models/marts](dbt/models/marts); the questions are in [analytics/](analytics/), with their answers in [analytics/RESULTS.md](analytics/RESULTS.md), small counts suppressed.
+
+## The prediction model
+
+```
+python -m uv run python -m ml               # writes ml/RESULTS.md, ml/results.json, ml/calibration.png
+```
+
+One logistic regression for hyperkalaemia after a RAAS-inhibitor start, against a hand-written rule score: split by patient, fitted on the training set only, evaluated on the test set, and checked against the effects the generator planted. It is a statistical model of this project's own fake data: **it learns the generator, not medicine**, and says nothing about real patients. Results: [ml/RESULTS.md](ml/RESULTS.md). Model card: [governance/model-card.md](governance/model-card.md).
