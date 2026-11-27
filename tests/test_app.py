@@ -131,3 +131,14 @@ def test_streamlit_sends_no_usage_statistics():
         (ROOT / ".streamlit" / "config.toml").read_text(encoding="utf-8")
     )
     assert config["browser"]["gatherUsageStats"] is False
+
+
+def test_a_suppressed_cell_reads_as_hidden_not_as_none():
+    import pandas as pd
+
+    from app.public_views import HIDDEN_COUNT, HIDDEN_RATE, shown
+
+    data = pd.DataFrame({"events": [None, 12.0], "rate_pct": [None, 6.25]})
+    table = shown(data, counts=["events"], rates=["rate_pct"])
+    assert list(table["events"]) == [HIDDEN_COUNT, "12"]
+    assert list(table["rate_pct"]) == [HIDDEN_RATE, "6.2"]
