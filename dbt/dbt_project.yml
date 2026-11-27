@@ -16,6 +16,11 @@ test-paths: ["tests"]
 vars:
   history_start: "2016-01-01"
   reference_date: "2025-12-31"
+  # Small-cell suppression: a count below k is never published (spec).
+  suppression_k: 10
+
+on-run-start:
+  - "{{ create_schemas_with_usage() }}"
 
 models:
   synthetic_ehr:
@@ -23,13 +28,26 @@ models:
     # so the only objects with patient_id are the source tables.
     staging:
       +materialized: ephemeral
+    # Grants are made by each table's own post_hook, in the same step that
+    # creates it: a rebuild drops a table's grants, and a separate grant script
+    # run afterwards would leave the table unreadable or open until it ran
+    # (docs/lessons-learned.md). Who reads what: governance/access-control.md.
     marts:
       +materialized: table
       +schema: marts
+      +post-hook:
+        - "{{ grant_read(this, ['researcher', 'data_steward']) }}"
+    marts_public:
+      +materialized: table
+      +schema: marts_public
+      +post-hook:
+        - "{{ grant_read(this, ['public_app', 'researcher', 'data_steward']) }}"
 
 seeds:
   synthetic_ehr:
     +schema: marts
+    +post-hook:
+      - "{{ grant_read(this, ['researcher', 'data_steward']) }}"
     dim_lab_test:
       # Explicit types: dbt would guess double precision, or integer where
       # every value happens to be whole.

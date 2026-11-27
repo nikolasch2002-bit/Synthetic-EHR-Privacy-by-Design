@@ -43,6 +43,10 @@ create table ml.raas_start_prediction (
     baseline_probability numeric not null,
     primary key (pseudonym, drug_class, index_date)
 );
+-- Pseudonymous, per start: the same readers as the marts.
+grant usage on schema ml to researcher, data_steward, etl;
+grant select on ml.raas_start_prediction to researcher, data_steward;
+grant select, insert, update, delete on ml.raas_start_prediction to etl;
 """
 
 

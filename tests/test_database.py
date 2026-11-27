@@ -180,7 +180,11 @@ def test_a_failed_load_leaves_the_database_as_it_was(url, dataset, tmp_path, loa
 
 # --- The data dictionary ---
 
-TYPES = {"character": "char(1)", "timestamp without time zone": "timestamp"}
+TYPES = {
+    "character": "char(1)",
+    "timestamp without time zone": "timestamp",
+    "timestamp with time zone": "timestamptz",
+}
 
 
 def dictionary_columns(schemas: tuple[str, ...]) -> dict[str, str]:

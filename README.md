@@ -45,3 +45,13 @@ python -m uv run python -m ml               # writes ml/RESULTS.md, ml/results.j
 ```
 
 One logistic regression for hyperkalaemia after a RAAS-inhibitor start, against a hand-written rule score: split by patient, fitted on the training set only, evaluated on the test set, and checked against the effects the generator planted. It is a statistical model of this project's own fake data: **it learns the generator, not medicine**, and says nothing about real patients. Results: [ml/RESULTS.md](ml/RESULTS.md). Model card: [governance/model-card.md](governance/model-card.md).
+
+## Who can read what
+
+Built as if the data were real patients' data. Access is enforced inside PostgreSQL, so no app code can show more than its role allows: grants per role, row-level security so a clinician sees only the patients their department treats, a logged and steward-only re-link from pseudonym to person, and a public layer (`marts_public`) of aggregates with every count below 10 suppressed. The role × object matrix and how each cell is enforced: [governance/access-control.md](governance/access-control.md); `tests/test_access.py` checks it cell by cell.
+
+```
+python -m uv run python -m publish          # copies marts_public, and nothing else, to HOSTED_DATABASE_URL
+```
+
+The publish step refuses a target that holds anything outside `marts_public`; its test runs against a local stand-in database. The hosted database itself is set up in week 8.

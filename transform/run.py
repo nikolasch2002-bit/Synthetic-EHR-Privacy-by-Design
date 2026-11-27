@@ -13,6 +13,7 @@ from urllib.parse import unquote, urlparse
 import psycopg
 from dbt.cli.main import dbtRunner
 
+from security import apply_roles
 from transform.pseudonyms import write_links
 
 DBT_DIR = Path(__file__).resolve().parent.parent / "dbt"
@@ -59,10 +60,13 @@ def build(url: str, key: bytes) -> int:
 
     The marts schema is dropped first, so every build starts from empty: a
     model that was renamed or removed leaves no stale table behind, and a
-    seed whose column types changed is created afresh.
+    seed whose column types changed is created afresh. The grants come back
+    with the tables: dbt creates them in each model's post_hook.
     """
     with psycopg.connect(url) as conn:
+        apply_roles(conn)  # roles exist before dbt grants anything to them
         conn.execute("drop schema if exists marts cascade")
+        conn.execute("drop schema if exists marts_public cascade")
     linked = write_links(url, key)
     dbt(url, "build")
     return linked

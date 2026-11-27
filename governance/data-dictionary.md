@@ -1,10 +1,10 @@
 # Data dictionary
 
-Every table and column in the source schemas: what it means, its type, the values it allows, its personal-data class, and which roles may read it. A test (`tests/test_database.py`) compares this file with the database and fails if a column is in one and not the other, or if a type differs.
+Every table and column in the database: what it means, its type, the values it allows, its personal-data class, and which roles may read it. Tests (`tests/test_database.py`, `tests/test_marts.py`, `tests/test_ml.py`, `tests/test_access.py`) compare this file with the database and fail if a column is in one and not the other, or if a type differs. The full role × schema matrix is in [access-control.md](access-control.md).
 
 **Personal-data classes:** *direct identifier*: identifies a person on its own (name, MRN, address, exact birth date); *quasi-identifier*: could identify a person when combined with others (birth year, sex, dates of care); *health data*: a special category under GDPR Art. 9; *none*.
 
-**Roles** (spec, "Security and compliance deliverables"; enforced from week 7): `clinician_<dept>` reads the identifiable record of its own department's patients; `data_steward` reads everything and can re-link pseudonyms; `etl` writes; `researcher` and `public_app` read **no** source table, only the marts. Below, "clinical roles" means `clinician_<dept>`, `data_steward` and `etl`.
+**Roles** (spec, "Security and compliance deliverables"; enforced since week 7): `clinician_<dept>` reads the identifiable record of the patients its department treats; `data_steward` reads everything and can re-link pseudonyms; `etl` writes; `researcher` and `public_app` read **no** source table, only the marts. Below, "clinical roles" means `clinician_<dept>`, `data_steward` and `etl`.
 
 The data is entirely fake, and treated as if it were real.
 
@@ -386,3 +386,67 @@ One row per continuous period a patient takes one medicine (orders that follow o
 | `start_date_key` | integer | Start, as a `dim_date` key | a `dim_date` | health data |
 | `days_exposed` | integer | Days in the period | 1 or more | health data |
 | `order_count` | bigint | Orders in the period | 1 or more | none |
+
+## Schema `marts_public`
+
+Aggregates only, for the public app and the hosted database. Every count below k = 10 is empty (`null`) with `is_suppressed` true, and so is a rate computed from such a count; no totals are published ([access-control.md](access-control.md)). Read by: `public_app`, `researcher`, `data_steward`.
+
+### `marts_public.public_condition_count`
+
+One row per condition, age band (in 2016) and sex.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `condition` | text | Condition | the six conditions | none (aggregate) |
+| `age_band` | text | Age band in 2016 | `18-29` … `90+` | none (aggregate) |
+| `sex` | char(1) | Sex | `F`, `M` | none (aggregate) |
+| `patients` | bigint | Patients with the condition on 2016-01-01 | 10 or more, or empty | none (aggregate) |
+| `is_suppressed` | boolean | The count was below k and is hidden | `true`, `false` | none |
+
+### `marts_public.public_interaction_rate`
+
+One row per drug-lab rule.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `rule` | text | The rule | a `dim_drug_lab_rule` rule | none (aggregate) |
+| `results` | bigint | Lab results inside an exposure window | 10 or more, or empty | none (aggregate) |
+| `events` | bigint | Results that broke the rule | 10 or more, or empty | none (aggregate) |
+| `rate_pct` | numeric | events / results, in % | 0–100, or empty | none (aggregate) |
+| `is_suppressed` | boolean | A count was below k and is hidden | `true`, `false` | none |
+
+### `marts_public.public_rule_score`
+
+One row per rule score, for RAAS-inhibitor starts with potassium measured.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `rule_score` | integer | The rule baseline score | 0–5 | none (aggregate) |
+| `starts` | bigint | Starts with that score | 10 or more, or empty | none (aggregate) |
+| `events` | bigint | Of those, with hyperkalaemia | 10 or more, or empty | none (aggregate) |
+| `event_rate_pct` | numeric | events / starts, in % | 0–100, or empty | none (aggregate) |
+| `is_suppressed` | boolean | A count was below k and is hidden | `true`, `false` | none |
+
+## Schema `security`
+
+Created by `security/roles.sql` (the audit log) and by the loader (`care_relation`).
+
+### `security.care_relation`
+
+One row per clinician role and patient it treats (a visit in its department). Rebuilt with every load; row-level security lets a clinician read only its own rows. Read by: `clinician_<dept>` (own rows), `data_steward`, `etl`.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `patient_id` | integer | Internal patient key | an existing patient | quasi-identifier |
+| `role_name` | name | The clinician role | `clinician_<dept>` | none |
+
+### `security.relink_log`
+
+One row per re-link: the audit log. Never dropped. Read by: `data_steward` (read and add, through `security.relink`; never change or delete).
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `relink_id` | bigint | Log row key | unique | none |
+| `relinked_at` | timestamptz | When | any | none |
+| `relinked_by` | text | The role that re-linked | `data_steward` | none |
+| `pseudonym` | text | The pseudonym re-linked | a pseudonym | quasi-identifier (pseudonymous) |
