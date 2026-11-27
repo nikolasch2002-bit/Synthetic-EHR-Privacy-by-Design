@@ -14,6 +14,9 @@ from pathlib import Path
 
 from generator.conditions import draw_history
 from generator.config import Config
+from generator.kidney import KidneyCourse
+from generator.labs import LabMaker
+from generator.medications import draw_therapies, orders_for
 from generator.patients import generate_patients
 from generator.visits import VisitMaker
 
@@ -34,6 +37,21 @@ COLUMNS = {
         "encounter_type", "start_time", "end_time",
     ],
     "encounter_diagnosis.csv": ["encounter_id", "icd10_code", "is_primary"],
+    "atc_code.csv": ["code"],
+    "loinc_code.csv": ["code"],
+    "medication_order.csv": [
+        "medication_order_id", "patient_id", "encounter_id", "atc_code", "dose",
+        "dose_unit", "frequency", "start_date", "stop_date",
+    ],
+    "lab_order.csv": ["lab_order_id", "patient_id", "encounter_id", "loinc_code", "ordered_at"],
+    "lab_result.csv": [
+        "lab_order_id", "value", "unit", "reference_low", "reference_high", "resulted_at",
+    ],
+    # Not an ehr table: what the generator planted, so tests can check that
+    # the analysis finds it. Never loaded into the database.
+    "truth/raas_start.csv": [
+        "patient_id", "drug_class", "start_date", "hyperkalaemia_chance", "hyperkalaemia",
+    ],
 }  # fmt: skip
 
 # Condition IDs are patient_id * this + a counter, like encounter IDs.
@@ -109,6 +127,12 @@ def write_dataset(
             )
         for condition in config.conditions.values():
             tables.write("icd10_code.csv", condition.icd10)
+        # Bare codes only, until the owner has read the ATC and LOINC terms.
+        for drug in config.drugs.values():
+            tables.write("atc_code.csv", drug.atc)
+        for test in config.lab_tests.values():
+            tables.write("loinc_code.csv", test.loinc)
+        lab_maker = LabMaker(config)
 
         for patient, identity in generate_patients(config, population):
             history = draw_history(config, patient)
@@ -138,6 +162,31 @@ def write_dataset(
                 tables.write(
                     "encounter_diagnosis.csv", d.encounter_id, d.icd10, d.is_primary
                 )
+            kidney = KidneyCourse(config, patient, history)
+            plan = draw_therapies(config, patient, history, kidney)
+            for o in orders_for(config, patient, plan):
+                # Repeat prescriptions are issued without a visit: no encounter.
+                tables.write(
+                    "medication_order.csv", o.order_id, o.patient_id, None, o.atc,
+                    o.dose, o.unit, o.frequency, o.start, o.stop,
+                )  # fmt: skip
+            results, raas_starts = lab_maker.draw(
+                patient, history, kidney, plan, encounters, diagnoses
+            )
+            for r in results:
+                tables.write(
+                    "lab_order.csv", r.lab_order_id, r.patient_id, r.encounter_id,
+                    r.loinc, r.ordered_at,
+                )  # fmt: skip
+                tables.write(
+                    "lab_result.csv", r.lab_order_id, r.value, r.unit, r.ref_low,
+                    r.ref_high, r.resulted_at,
+                )  # fmt: skip
+            for s in raas_starts:
+                tables.write(
+                    "truth/raas_start.csv", patient.patient_id, s.start.drug_class,
+                    s.start.day, round(s.chance, 6), s.event,
+                )  # fmt: skip
     finally:
         tables.close()
     write_manifest(out_dir)

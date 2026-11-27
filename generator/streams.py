@@ -20,6 +20,9 @@ class Part(IntEnum):
     DEATH = 3
     CLINICIANS = 4  # shared by all patients, so drawn as "patient 0"
     VISITS = 5
+    KIDNEY = 6
+    MEDICATIONS = 7
+    LABS = 8
 
 
 def patient_rng(seed: int, patient_id: int, part: Part) -> np.random.Generator:

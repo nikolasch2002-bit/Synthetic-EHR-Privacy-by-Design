@@ -4,7 +4,7 @@
 # with its reason, then here.
 
 seed: 20261126
-population: 25000
+population: 40000 # raised from 25,000 in week 2: see the spec, "Changes"
 locale: nl_NL
 
 history:
@@ -123,3 +123,145 @@ visits:
       rate: [0.042, 0.054, 0.049, 0.055, 0.069, 0.104, 0.135]
     heart_failure_factor: 2.0 # assumed
     length_of_stay_days: {min: 1, max: 10} # assumed
+
+# ---------------------------------------------------------------------------
+# Week 2: medicines and labs. docs/clinical-rules.md sections 9 to 11.
+# ---------------------------------------------------------------------------
+
+# Section 9. One representative medicine per class. ATC codes to verify.
+drugs:
+  metformin: {atc: A10BA02, drug_class: biguanide, dose: 1000, unit: mg, frequency: twice daily}
+  insulin_glargine: {atc: A10AE04, drug_class: insulin, dose: 20, unit: units, frequency: once daily}
+  ramipril: {atc: C09AA05, drug_class: ace_inhibitor, dose: 5, unit: mg, frequency: once daily}
+  losartan: {atc: C09CA01, drug_class: arb, dose: 50, unit: mg, frequency: once daily}
+  hydrochlorothiazide: {atc: C03AA03, drug_class: thiazide, dose: 12.5, unit: mg, frequency: once daily}
+  furosemide: {atc: C03CA01, drug_class: loop_diuretic, dose: 40, unit: mg, frequency: once daily}
+  spironolactone: {atc: C03DA01, drug_class: mra, dose: 25, unit: mg, frequency: once daily}
+  metoprolol: {atc: C07AB02, drug_class: beta_blocker, dose: 50, unit: mg, frequency: once daily}
+  warfarin: {atc: B01AA03, drug_class: vka, dose: 5, unit: mg, frequency: once daily}
+  apixaban: {atc: B01AF02, drug_class: doac, dose: 5, unit: mg, frequency: twice daily}
+  atorvastatin: {atc: C10AA05, drug_class: statin, dose: 20, unit: mg, frequency: once daily}
+
+# Section 9. For each condition, one or more choices, made when it is
+# diagnosed (or on the start date if already present). Each choice picks at
+# most one medicine, with the chances given (the rest: none). A choice is
+# skipped if the patient already takes a medicine of a class in `unless`.
+treatment:
+  type2_diabetes:
+    - {drugs: {metformin: 0.85}}
+    - {drugs: {insulin_glargine: 0.15}, after_years: {min: 2, max: 8}}
+  hypertension:
+    - {drugs: {ramipril: 0.50, losartan: 0.25}}
+    - {drugs: {hydrochlorothiazide: 0.30}}
+  hyperlipidaemia:
+    - {drugs: {atorvastatin: 0.70}}
+  ckd:
+    - {drugs: {ramipril: 0.40, losartan: 0.20}, unless: [ace_inhibitor, arb]}
+  atrial_fibrillation:
+    - {drugs: {warfarin: 0.25, apixaban: 0.60}}
+    - {drugs: {metoprolol: 0.60}, unless: [beta_blocker]}
+  heart_failure:
+    - {drugs: {ramipril: 0.55, losartan: 0.25}, unless: [ace_inhibitor, arb]}
+    - {drugs: {metoprolol: 0.80}, unless: [beta_blocker]}
+    - {drugs: {furosemide: 0.70}}
+
+medication_rules:
+  start_after_diagnosis_days: {min: 0, max: 60}
+  prescription_days: 90 # one order covers 90 days; repeated until stopped
+  yearly_stop_chance: 0.05
+  # Added later, each year, to heart-failure patients on an ACE inhibitor or ARB.
+  spironolactone_add_on_per_year: 0.08
+  # ACE inhibitor stopped for cough and replaced by an ARB, within 2 years.
+  ace_inhibitor_to_arb_switch: 0.10
+  # Metformin stopped (within 30 days) once eGFR falls below 30; the rest continue.
+  metformin_stop_below_egfr_30: 0.70
+
+# Section 10. Lab tests. LOINC codes to verify. Reference ranges are typical
+# Dutch adult ranges (assumed); `limits` are physiological limits.
+lab_tests:
+  potassium: {decimals: 1, loinc: 2823-3, unit: mmol/L, ref_low: 3.5, ref_high: 5.0, limit_low: 1.5, limit_high: 9.0}
+  sodium: {decimals: 0, loinc: 2951-2, unit: mmol/L, ref_low: 135, ref_high: 145, limit_low: 110, limit_high: 170}
+  creatinine: {decimals: 0, loinc: 14682-9, unit: umol/L, ref_low: 60, ref_high: 110, female_ref_low: 45, female_ref_high: 90, limit_low: 20, limit_high: 1500}
+  egfr: {decimals: 0, loinc: 98979-8, unit: mL/min/1.73m2, ref_low: 60, limit_low: 3, limit_high: 150}
+  hba1c: {decimals: 0, loinc: 59261-8, unit: mmol/mol, ref_low: 20, ref_high: 42, limit_low: 20, limit_high: 150}
+  glucose: {decimals: 1, loinc: 14749-6, unit: mmol/L, ref_low: 4.0, ref_high: 7.8, limit_low: 2.0, limit_high: 35}
+  ldl: {decimals: 1, loinc: 22748-8, unit: mmol/L, ref_high: 3.0, limit_low: 0.3, limit_high: 12}
+  alt: {decimals: 0, loinc: 1742-6, unit: U/L, ref_high: 45, female_ref_high: 35, limit_low: 3, limit_high: 2000}
+  inr: {decimals: 1, loinc: 6301-6, unit: "{INR}", ref_low: 0.8, ref_high: 1.2, limit_low: 0.8, limit_high: 10}
+  nt_probnp: {decimals: 0, loinc: 33762-6, unit: ng/L, ref_high: 125, limit_low: 5, limit_high: 70000}
+
+# Section 10. Tests ordered at a visit, by what the visit is for.
+lab_panels:
+  type2_diabetes: [hba1c, glucose, creatinine, egfr, potassium]
+  hypertension: [creatinine, egfr, potassium, sodium]
+  hyperlipidaemia: [ldl, alt]
+  ckd: [creatinine, egfr, potassium, sodium]
+  atrial_fibrillation: [creatinine, egfr]
+  heart_failure: [sodium, potassium, creatinine, egfr, nt_probnp]
+  no_condition: [hba1c, glucose, creatinine, egfr]
+  emergency: [sodium, potassium, creatinine, egfr, glucose]
+  inpatient: [sodium, potassium, creatinine, egfr, glucose]
+
+lab_rules:
+  outpatient_labs_chance: 0.80 # share of outpatient visits with blood tests
+  result_after_hours: {min: 1, max: 4}
+  inr_monitoring_days: 28 # INR checked every 4 weeks on warfarin
+  # Follow-up tests outside visits, after a medicine starts.
+  potassium_after_raas_start: {chance: 0.70, days: {min: 5, max: 21}}
+  alt_after_statin_start: {chance: 0.60, days: {min: 42, max: 84}}
+
+# Section 10. How each patient's lab values are made (assumed unless noted).
+lab_model:
+  egfr_at_age_30: 105
+  egfr_drop_per_year_of_age: 0.8
+  egfr_sd: 10
+  egfr_ckd_at_start: {min: 15, max: 59} # CKD present on the start date
+  egfr_ckd_at_onset: {min: 45, max: 59} # CKD diagnosed during follow-up
+  egfr_ckd_yearly_drop: {min: 1, max: 4}
+  creatinine_cv: 0.05 # test-to-test variation
+  potassium_mean: 4.3
+  potassium_sd: 0.35
+  potassium_test_sd: 0.20
+  potassium_per_10_egfr_below_60: 0.10
+  potassium_drug_effects: {ace_inhibitor: 0.15, arb: 0.15, mra: 0.30, loop_diuretic: -0.30, thiazide: -0.25}
+  sodium_mean: 140
+  sodium_test_sd: 2.0
+  sodium_diuretic_effect: -2.0
+  hba1c_healthy: {mean: 36, sd: 3}
+  hba1c_diabetes: {mean: 62, sd: 10}
+  hba1c_metformin_effect: -10
+  hba1c_insulin_effect: -8
+  hba1c_test_sd: 2.0
+  drug_effect_days: 90 # a medicine's full effect is reached over this many days
+  glucose_healthy: {mean: 5.3, sd: 0.5}
+  glucose_from_hba1c: {slope: 0.0915, intercept: 2.15, sd: 1.0} # ADAG study
+  ldl_healthy: {mean: 3.2, sd: 0.7}
+  ldl_hyperlipidaemia: {mean: 4.6, sd: 0.8}
+  ldl_statin_reduction: 0.40
+  ldl_test_sd: 0.2
+  alt_median: 22
+  alt_log_sd: 0.35
+  inr_off_warfarin: {mean: 1.0, sd: 0.08}
+  inr_on_warfarin: {mean: 2.6, sd: 0.45}
+  nt_probnp_median: {no_heart_failure: 80, heart_failure: 1500}
+  nt_probnp_log_sd: 0.8
+
+# Section 11. The five drug-lab interactions, planted at known rates.
+interactions:
+  hyperkalaemia_after_raas_start:
+    window_days: 30
+    threshold: 5.5
+    # Log-odds of hyperkalaemia within the window, for each start. The true
+    # answer the prediction model should recover (spec, "Prediction model").
+    log_odds:
+      intercept: -3.4
+      egfr_per_10_below_60: 0.30
+      potassium_per_mmol_above_4_5: 1.20
+      diabetes: 0.50
+      age_per_10_years_above_60: 0.25
+      combination: 1.00 # ACE inhibitor or ARB together with spironolactone
+      loop_or_thiazide: -0.70
+  hypokalaemia_on_diuretic: {chance_per_test: 0.08, threshold: 3.5}
+  inr_above_4_on_warfarin: {chance_per_test: 0.08, threshold: 4.0}
+  alt_after_statin_start: {chance: 0.02, times_uln: 3}
+  # Metformin continued with eGFR below 30: 1 - metformin_stop_below_egfr_30.

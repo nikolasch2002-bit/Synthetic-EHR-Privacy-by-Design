@@ -118,3 +118,60 @@ Each visit goes to the department that treats the condition it is for (*assumed*
 The spec's estimate assumed about 35% of patients have hypertension or heart failure. With section 1's age mix and section 2's rates, about **26%** have hypertension at baseline (derived). Keeping the spec's other assumptions (30% with a new start, 70% tested, 8% hyperkalaemia), 25,000 patients give about **108 events, about 76 in training**, short of the 100 needed. About 35,000 patients would give about 106 in training.
 
 Two things push the real count up: co-occurrence (section 3) raises hypertension above the GP rate, and the closed cohort ages ten years over follow-up. So the spec's existing rule stands: count the events after the first full generation, and raise the population if fewer than 100 fall in training.
+
+---
+
+# Week 2: medicines, labs and interactions
+
+> **Drafted by the assistant for the owner's review** (weeks 1–5 were built in one go, by the owner's choice). Nothing below has the owner's approval yet. Numbers are *assumed* unless a source is named. The ATC and LOINC codes are to verify against the official lists; only bare codes are committed (spec, "Data").
+
+## 9. Medicines
+
+One representative medicine per class: metformin (A10BA02), insulin glargine (A10AE04), ramipril (C09AA05), losartan (C09CA01), hydrochlorothiazide (C03AA03), furosemide (C03CA01), spironolactone (C03DA01), metoprolol (C07AB02), warfarin (B01AA03), apixaban (B01AF02), atorvastatin (C10AA05). Doses are usual starting or maintenance doses.
+
+| Condition | Treatment when diagnosed (chance; otherwise none) |
+| --- | --- |
+| Type 2 diabetes | metformin 85%; insulin 15%, 2–8 years after diagnosis |
+| Hypertension | ramipril 50% or losartan 25%; and hydrochlorothiazide 30% |
+| Hyperlipidaemia | atorvastatin 70% |
+| CKD | ramipril 40% or losartan 20%, unless already on one |
+| Atrial fibrillation | warfarin 25% or apixaban 60%; metoprolol 60%, unless already on a beta blocker |
+| Heart failure | ramipril 55% or losartan 25%, unless already on one; metoprolol 80%, unless already on one; furosemide 70% |
+
+- Started 0–60 days after diagnosis. A condition already present on 2016-01-01 was treated before the history starts, so its first order is a repeat order in the first 90 days.
+- One order covers 90 days and is repeated until the therapy stops: 5% a year stop, and at death or the end of the history.
+- Spironolactone is added in heart failure, 8% a year, on top of an ACE inhibitor or ARB.
+- An ACE inhibitor is replaced by losartan within 2 years in 10% (cough).
+- Metformin is stopped within 30 days once eGFR falls below 30, in 70%; 30% continue (interaction 4).
+- A medicine is never started twice at once. Repeat prescriptions have no visit (`encounter_id` empty).
+- *Note:* Dutch practice uses acenocoumarol more than warfarin; the spec names warfarin, so the data does.
+
+## 10. Labs
+
+Ten tests, with typical Dutch adult reference ranges: potassium, sodium, creatinine (men 60–110, women 45–90 µmol/L), eGFR, HbA1c (mmol/mol), glucose, LDL, ALT (upper limit men 45, women 35 U/L), INR, NT-proBNP. Values are clipped to physiological limits and rounded as a lab reports them; thresholds apply to the rounded value.
+
+**When:** 80% of outpatient visits order the panel for the condition the visit is for (e.g. diabetes: HbA1c, glucose, creatinine, eGFR, potassium); a visit with no condition: HbA1c, glucose, creatinine, eGFR. Emergency visits and admissions: sodium, potassium, creatinine, eGFR, glucose. Outside visits: potassium, creatinine and eGFR 5–21 days after a RAAS-inhibitor start, in 70% (guidelines advise the check; it does not always happen); ALT 6–12 weeks after a statin start, in 60%; INR every 28 days on warfarin.
+
+**Values:**
+- **Kidney:** each patient has a true eGFR course. Without CKD: 105 at age 30, minus 0.8 per year of age, ± 10, falling 0.8 a year, never below 61. With CKD: 15–59 on the start date (or 45–59 at a later diagnosis, falling to it from the healthy value), then falling 1–4 a year. A creatinine is drawn around the value that matches the true eGFR (5% variation), and the reported eGFR is computed from it with the **CKD-EPI 2021** equation (Inker et al., *NEJM* 2021), as a lab does.
+- **Potassium:** the patient's own level (4.3 ± 0.35), +0.1 per 10 eGFR below 60, + medicine effects (ACE inhibitor/ARB +0.15, spironolactone +0.3, loop diuretic −0.3, thiazide −0.25), ± 0.2 per test.
+- **HbA1c:** 36 ± 3 without diabetes; 62 ± 10 with, falling by 10 on metformin and 8 more on insulin, over 90 days. **Glucose** follows HbA1c by the ADAG relation (Nathan et al., *Diabetes Care* 2008: 0.0915 × HbA1c + 2.15).
+- **LDL:** 3.2 ± 0.7, or 4.6 ± 0.8 with hyperlipidaemia; 40% lower on a statin. **Sodium:** 140 ± 2, 2 lower on a diuretic. **ALT:** median 22 U/L. **INR:** 1.0 off warfarin, 2.6 ± 0.45 on it. **NT-proBNP:** median 80 ng/L, 1,500 with heart failure.
+
+## 11. The five interactions, planted
+
+| # | Interaction | Planted as |
+| --- | --- | --- |
+| 1 | Hyperkalaemia (K⁺ ≥ 5.5) within 30 days of a RAAS-inhibitor start | Once per start, chance from the formula below. If it happens, every potassium in days 1–30 is ≥ 5.5; if not, none is |
+| 2 | Hypokalaemia (K⁺ < 3.5) on a loop or thiazide diuretic | 8% of potassium tests on a diuretic (outside interaction 1's windows); the rest ≥ 3.5 |
+| 3 | INR > 4 on warfarin | 8% of INR tests on warfarin; the rest 1.0–4.0 |
+| 4 | Metformin continued with eGFR < 30 | 30% of metformin users whose eGFR falls below 30 |
+| 5 | ALT > 3 × upper limit after a statin start | 2% of statin starts, in the first 12 weeks on the statin |
+
+A **start** is an order with no order of the same class (ACE inhibitor, ARB, spironolactone) in the 180 days before, counted from 180 days after the history starts.
+
+**Interaction 1's formula**, the truth the prediction model should recover. Log-odds = −3.4 + 0.30 × (eGFR below 60, per 10) + 1.20 × (potassium − 4.5) + 0.50 × diabetes + 0.25 × (age − 60, per 10 years) + 1.00 × ACE inhibitor or ARB with spironolactone − 0.70 × loop or thiazide diuretic. eGFR and potassium are the most recent results in the 365 days before the start, as the model will see them (the true level if none).
+
+**Outcome counts** (full run, 40,000 patients, seed 20261126): 4,251 RAAS starts from 2017; potassium measured within 30 days after 3,064 (72%); 169 observed hyperkalaemia events, so about 118 in a 70% training set.
+
+What the generator planted is written to `data/truth/raas_start.csv` (never loaded into the database), so tests can check the analysis finds exactly that.

@@ -6,7 +6,7 @@ A realistic but entirely fake electronic health record, generated from a seed, a
 
 ```
 python -m uv sync
-python -m uv run python -m generator                  # 25,000 patients into data/
+python -m uv run python -m generator                  # 40,000 patients into data/ (about 2.5 minutes)
 python -m uv run python -m generator --population 200 --out data/small
 ```
 
