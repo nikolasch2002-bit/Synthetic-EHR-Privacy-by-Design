@@ -68,3 +68,19 @@ $env:APP_MODE="local"; python -m uv run streamlit run app/streamlit_app.py   # l
 ```
 
 **Hosted mode** (the default, and what the public link shows) reads `marts_public` as `public_app` and nothing else: its only secret is that login, and it switches to `public_app` even if given a stronger one. **Local mode** needs `APP_MODE=local` and adds a role switcher, a cohort builder, the drug–lab events and the patient timeline; every page asks the database as the chosen role, which decides what appears. The hosted database is Neon (Postgres 16, Frankfurt), holding only `marts_public`; `tests/test_hosted.py` checks that on the host itself.
+
+### Local mode: the database decides what each role sees
+
+A clinician asks for the cohort builder, which reads the pseudonymized marts. The database refuses: clinicians read only the identifiable record of the patients they treat.
+
+![Local mode, role clinician_internal_medicine: the cohort builder is refused by the database, "permission denied for schema marts".](docs/images/local-clinician-refused.jpg)
+
+A researcher asks for the patient timeline, which needs identities. Refused again: researchers read only pseudonymized data.
+
+![Local mode, role researcher: the patient timeline is refused by the database, "permission denied for schema ehr_identity".](docs/images/local-researcher-timeline-refused.jpg)
+
+The same researcher builds a cohort from the marts: aggregate counts only.
+
+![Local mode, role researcher: the cohort builder with hypertension selected, 14,034 patients, and a bar chart by age band.](docs/images/local-researcher-cohort.jpg)
+
+The patient timeline itself is not shown here. It is identifiable (a name, a record number, one person's diagnoses and medicines), and this project keeps per-patient data out of the repository even though it is fake: only suppressed aggregates may appear in docs and screenshots (spec, "Data"). Run local mode to see it as a clinician or the data steward.
