@@ -1,6 +1,10 @@
 # Synthetic EHR + “Privacy-by-Design”
 
-A realistic but entirely fake electronic health record, generated from a seed, and protected as if it were real. The plan is in [docs/project-spec.md](docs/project-spec.md); the clinical rules and the sources of their numbers are in [docs/clinical-rules.md](docs/clinical-rules.md).
+A realistic but entirely fake electronic health record, generated from a seed, and protected as if it were real.
+
+**Live app (public view, suppressed aggregates only):** <https://synthetic-ehr-privacy-by-design-ucswktrx7cpdpshaaboc9n.streamlit.app>. It sleeps after a while without visitors; the first load can take a few seconds.
+
+The plan is in [docs/project-spec.md](docs/project-spec.md); the clinical rules and the sources of their numbers are in [docs/clinical-rules.md](docs/clinical-rules.md).
 
 ## Generate the data
 
