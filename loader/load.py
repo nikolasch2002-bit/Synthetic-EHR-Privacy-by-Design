@@ -13,6 +13,7 @@ import psycopg
 from dotenv import load_dotenv
 
 from generator.output import COLUMNS, MANIFEST
+from security import apply_ehr_access, apply_roles
 
 SCHEMA_SQL = Path(__file__).resolve().parent.parent / "db" / "ehr_schema.sql"
 
@@ -70,6 +71,7 @@ def load(data_dir: Path, url: str) -> dict[str, int]:
     )
     counts = {}
     with psycopg.connect(url) as conn:  # one transaction; commits on success
+        apply_roles(conn)  # the roles must exist before anything is granted to them
         conn.execute(SCHEMA_SQL.read_text(encoding="utf-8"))
         for name, table in TABLES.items():
             columns = ", ".join(COLUMNS[name])
@@ -83,5 +85,8 @@ def load(data_dir: Path, url: str) -> dict[str, int]:
                 while chunk := f.read(1 << 20):
                     copy.write(chunk)
             counts[table] = conn.execute(f"select count(*) from {table}").fetchone()[0]
+        # In the same transaction as the tables: they are never open, not even
+        # for a moment between the load and their protection.
+        apply_ehr_access(conn)
         conn.execute("analyze")
     return counts

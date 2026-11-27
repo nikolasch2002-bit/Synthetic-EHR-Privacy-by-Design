@@ -27,6 +27,10 @@ create table ehr_link.patient_pseudonym (
     patient_id integer primary key references ehr.patient,
     pseudonym text not null unique check (pseudonym ~ '^SYN-P-[0-9a-f]{16}$')
 );
+-- Only the steward reads the link (it is what re-linking uses); etl writes it.
+grant usage on schema ehr_link to data_steward, etl;
+grant select on ehr_link.patient_pseudonym to data_steward;
+grant select, insert, update, delete on ehr_link.patient_pseudonym to etl;
 """
 
 
