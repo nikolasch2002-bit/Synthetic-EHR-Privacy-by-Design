@@ -8,13 +8,29 @@ permissions:
 # Actions are pinned to a commit hash, not a tag: a tag can be moved to other
 # code, a hash cannot. Dependabot proposes updates.
 #
-# A starting point for a Python project managed with uv. For a database, add
-# a throwaway branch per run as the ICU Data Warehouse does:
-# https://github.com/nikolasch2002-bit/icu-data-warehouse/blob/main/.github/workflows/ci.yml
+#
+# The database is a fresh Postgres container for each run, built from empty
+# with data generated from the seed: no hosted database and no database
+# secrets in CI. The password below only opens that throwaway container.
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        # The same image and digest as docker-compose.yml.
+        image: postgres:16.15@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97
+        env:
+          POSTGRES_USER: ehr_admin
+          POSTGRES_PASSWORD: ci-throwaway
+          POSTGRES_DB: synthetic_ehr
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ehr_admin -d synthetic_ehr"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+    env:
+      DATABASE_URL: postgresql://ehr_admin:ci-throwaway@127.0.0.1:5432/synthetic_ehr
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -42,6 +58,13 @@ jobs:
         uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # A small sample, generated from the seed and loaded, so a broken
+      # generator or schema fails here, before the tests.
+      - name: Generate and load a sample
+        run: |
+          uv run python -m generator --population 500 --out data
+          uv run python -m loader --data data
 
       # In CI a missing prerequisite must fail, never skip.
       - name: Test

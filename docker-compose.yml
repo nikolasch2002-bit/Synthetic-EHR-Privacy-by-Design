@@ -1,0 +1,29 @@
+# The local database: PostgreSQL 16 in Docker.
+#   docker compose up -d      start it
+#   docker compose down       stop it (the data stays in the volume)
+# The password comes from .env (gitignored), never from this file.
+name: synthetic-ehr
+
+services:
+  db:
+    # Pinned to a digest, like the CI actions: a tag can be moved, a digest cannot.
+    image: postgres:16.15@sha256:9e2cf6287f25c3151f4c9421ccce2b17f3e60061c111a29165e0d2cdd9ff0a97
+    container_name: synthetic-ehr-db
+    environment:
+      POSTGRES_USER: ehr_admin
+      POSTGRES_DB: synthetic_ehr
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports:
+      # 127.0.0.1 only: nothing outside this computer can connect. Port 5433,
+      # so it never clashes with another local Postgres on 5432.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ehr_admin -d synthetic_ehr"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+volumes:
+  pgdata:
