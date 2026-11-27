@@ -104,12 +104,16 @@ class History(Strict):
 class Outpatient(Strict):
     base_per_year: float = Field(ge=0)
     per_condition_per_year: float = Field(ge=0)
+    default_department: str  # for a visit with no condition yet
+    clinic_hours: Range  # first and last hour a visit can start
+    duration_minutes: Range
 
 
 class Emergency(Strict):
     department: str
     per_year: float = Field(ge=0)
     heart_failure_factor: float = Field(gt=0)
+    duration_hours: Range
 
 
 class RatesByAge(Strict):
@@ -148,6 +152,7 @@ class Config(Strict):
     prevalent_onset_years_before: Range
     mortality: Mortality
     departments: list[str]
+    clinicians_per_department: int = Field(gt=0)
     visits: Visits
 
     @model_validator(mode="after")
@@ -185,6 +190,8 @@ class Config(Strict):
             )
         if self.visits.emergency.department not in self.departments:
             raise ValueError("the emergency department is not in departments")
+        if self.visits.outpatient.default_department not in self.departments:
+            raise ValueError("the outpatient default department is not in departments")
         return self
 
 

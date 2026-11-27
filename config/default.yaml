@@ -102,16 +102,21 @@ mortality:
 
 # Section 7.
 departments: [internal_medicine, cardiology, nephrology, emergency]
+clinicians_per_department: 8 # assumed
 
 # Section 6.
 visits:
   outpatient: # assumed
     base_per_year: 0.5
     per_condition_per_year: 1.0
+    default_department: internal_medicine
+    clinic_hours: {min: 8, max: 16} # a visit starts between 08:00 and 16:59
+    duration_minutes: {min: 10, max: 30}
   emergency: # assumed
     department: emergency
     per_year: 0.15
     heart_failure_factor: 2.0
+    duration_hours: {min: 1, max: 6}
   inpatient:
     per_year: # CBS 85454NED, admitted with an overnight stay, 2024
       age_from: [18, 30, 40, 50, 55, 65, 75]
