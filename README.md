@@ -55,3 +55,12 @@ python -m uv run python -m publish          # copies marts_public, and nothing e
 ```
 
 The publish step refuses a target that holds anything outside `marts_public`; its test runs against a local stand-in database. The hosted database itself is set up in week 8.
+
+## The app
+
+```
+python -m uv run streamlit run app/streamlit_app.py                    # hosted mode: public aggregates only
+$env:APP_MODE="local"; python -m uv run streamlit run app/streamlit_app.py   # local mode (PowerShell)
+```
+
+**Hosted mode** (the default, and what the public link shows) reads `marts_public` as `public_app` and nothing else: its only secret is that login, and it switches to `public_app` even if given a stronger one. **Local mode** needs `APP_MODE=local` and adds a role switcher, a cohort builder, the drug–lab events and the patient timeline; every page asks the database as the chosen role, which decides what appears. The hosted database is Neon (Postgres 16, Frankfurt), holding only `marts_public`; `tests/test_hosted.py` checks that on the host itself.
