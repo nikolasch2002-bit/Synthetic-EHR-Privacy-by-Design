@@ -220,6 +220,7 @@ class LabRules(Strict):
     outpatient_labs_chance: float = Field(ge=0, le=1)
     result_after_hours: Range
     inr_monitoring_days: int = Field(gt=0)
+    tests_at_diabetes_diagnosis: list[str]  # outside a visit, on the day
     potassium_after_raas_start: FollowUp
     alt_after_statin_start: FollowUp
 
@@ -272,6 +273,8 @@ class LabModel(Strict):
     hba1c_metformin_effect: float
     hba1c_insulin_effect: float
     hba1c_test_sd: float = Field(ge=0)
+    hba1c_diagnosis_threshold: float  # diabetes is diagnosed at or above this
+    hba1c_rise_before_diagnosis_days: int = Field(gt=0)
     drug_effect_days: int = Field(gt=0)
     glucose_healthy: MeanSd
     glucose_from_hba1c: Line
@@ -415,6 +418,12 @@ class Config(Strict):
         needed = {*conditions, "no_condition", "emergency", "inpatient"}
         if missing := needed - set(self.lab_panels):
             raise ValueError(f"lab_panels is missing {sorted(missing)}")
+        if unknown := set(self.lab_rules.tests_at_diabetes_diagnosis) - set(
+            self.lab_tests
+        ):
+            raise ValueError(
+                f"tests_at_diabetes_diagnosis names unknown tests {sorted(unknown)}"
+            )
         for panel, tests in self.lab_panels.items():
             if unknown := set(tests) - set(self.lab_tests):
                 raise ValueError(

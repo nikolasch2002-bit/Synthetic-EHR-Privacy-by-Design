@@ -1,0 +1,22 @@
+version: 2
+
+sources:
+  - name: ehr
+    description: The normalized source schema, loaded by the loader.
+    tables:
+      - name: patient
+      - name: condition
+      - name: encounter
+      - name: encounter_diagnosis
+      - name: medication_order
+      - name: lab_order
+      - name: lab_result
+      - name: department
+  - name: ehr_identity
+    description: Identifiers. The marts take only the province from it, as a region.
+    tables:
+      - name: patient_identity
+  - name: ehr_link
+    description: patient_id -> pseudonym, written by transform/pseudonyms.py.
+    tables:
+      - name: patient_pseudonym

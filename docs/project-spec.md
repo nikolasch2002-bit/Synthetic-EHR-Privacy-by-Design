@@ -153,13 +153,15 @@ Top to bottom, with each trust boundary:
 | `medication_order` | prescription | Patient, encounter, ATC code, dose, start, stop |
 | `lab_order` / `lab_result` | order / result | Encounter, LOINC code, value, unit, reference range, time |
 | Code tables | code | `icd10_code`, `atc_code`, `loinc_code` |
+| `ehr_link.patient_pseudonym` | patient | Internal ID → keyed pseudonym, written by `transform/pseudonyms.py`; read only by the steward. The key is not in the database |
 
 ### Marts (star schema, pseudonymized)
 
-State the grain in one sentence before writing SQL.
+State the grain in one sentence before writing SQL. Row keys in the marts are new, numbered in pseudonym order: the source IDs encode the patient ID, so carrying them over would let anyone with the source tables link back without the key.
 
 | Fact | Grain: one row per… | Measures | Dimensions |
 | --- | --- | --- | --- |
+| `fact_condition` | condition on a patient's problem list | onset date, present on the start date | patient, diagnosis, date |
 | `fact_encounter` | visit | length (hours), diagnosis count | patient, department, encounter type, date |
 | `fact_lab_result` | lab result | value, abnormal flag | patient, lab test, date, encounter |
 | `fact_medication_exposure` | continuous period a patient takes one drug | days exposed | patient, drug, start date, stop date |
@@ -304,4 +306,7 @@ The owner decides these; each has options and a recommendation.
 | 2026-11-26 | The population is adult hospital patients in a closed cohort (18+ and alive on 2016-01-01), not the general population | The model's event estimate assumes about 35% with hypertension or heart failure, which fits hospital patients; the general population would leave the model short of events. A closed cohort gives everyone history before 2017. Decided by the owner while planning week 1 |
 | 2026-11-26 | Default population 25,000 → 40,000 patients | The first full generation (week 2) gave 106 observed hyperkalaemia events at 25,000 patients, about 74 in training; the rule above says to raise the population. 40,000 gave 169, about 118 in training. Drafted by the assistant for the owner's review |
 | 2026-11-26 | `medication_order.encounter_id` and `lab_order.encounter_id` may be empty | Repeat prescriptions, follow-up tests and INR monitoring happen without a visit. Drafted by the assistant for the owner's review |
+| 2026-11-26 | HbA1c rises over the year before a diabetes diagnosis to at least 48 mmol/mol, and the diagnosing HbA1c and glucose are recorded on the day | Question 6 showed HbA1c *rising* after metformin: the generator kept it normal until the diagnosis, and nothing measured it then. Diabetes is diagnosed because HbA1c is high. Drafted by the assistant for the owner's review |
+| 2026-11-26 | Pseudonyms are computed in Python into `ehr_link`, not in SQL; mart row keys are new; `fact_condition` added; `dim_drug`, `dim_lab_test` and `dim_diagnosis` are dbt seeds written from the config | The key must not reach the database or dbt's files (lessons learned); source IDs encode the patient ID; question 1 needs conditions with onsets; one source for reference data. Drafted by the assistant for the owner's review |
+| 2026-11-26 | Small-cell suppression (k = 10) already applies to `analytics/RESULTS.md` | The spec's data table allows aggregates in the repository only after suppression; RESULTS.md is committed in week 4, before `marts_public` (week 7). Complementary suppression is not done yet |
 | 2026-11-26 | ICD-10 codes are committed without their titles until the WHO answers | No WHO page states ICD-10's licence outright; the bare codes carry almost no risk, and the week-1 generator does not need the titles. Decided by the owner |

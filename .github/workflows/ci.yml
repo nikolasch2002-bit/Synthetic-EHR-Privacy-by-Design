@@ -66,6 +66,15 @@ jobs:
           uv run python -m generator --population 500 --out data
           uv run python -m loader --data data
 
+      # A new random pseudonym key for every run, never printed: no secret is
+      # stored in GitHub, and the run's pseudonyms die with its container.
+      - name: Make a throwaway pseudonym key
+        run: echo "PSEUDONYM_KEY=$(python -c 'import secrets; print(secrets.token_hex(32))')" >> "$GITHUB_ENV"
+
+      # Pseudonyms, then dbt build: every seed, model and dbt test.
+      - name: Build the marts
+        run: uv run python -m transform
+
       # In CI a missing prerequisite must fail, never skip.
       - name: Test
         run: uv run pytest

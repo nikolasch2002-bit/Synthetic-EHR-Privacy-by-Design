@@ -206,6 +206,7 @@ lab_rules:
   outpatient_labs_chance: 0.80 # share of outpatient visits with blood tests
   result_after_hours: {min: 1, max: 4}
   inr_monitoring_days: 28 # INR checked every 4 weeks on warfarin
+  tests_at_diabetes_diagnosis: [hba1c, glucose] # the tests the diagnosis is made from
   # Follow-up tests outside visits, after a medicine starts.
   potassium_after_raas_start: {chance: 0.70, days: {min: 5, max: 21}}
   alt_after_statin_start: {chance: 0.60, days: {min: 42, max: 84}}
@@ -232,6 +233,8 @@ lab_model:
   hba1c_metformin_effect: -10
   hba1c_insulin_effect: -8
   hba1c_test_sd: 2.0
+  hba1c_diagnosis_threshold: 48 # mmol/mol (NHG-Standaard Diabetes mellitus type 2)
+  hba1c_rise_before_diagnosis_days: 365
   drug_effect_days: 90 # a medicine's full effect is reached over this many days
   glucose_healthy: {mean: 5.3, sd: 0.5}
   glucose_from_hba1c: {slope: 0.0915, intercept: 2.15, sd: 1.0} # ADAG study

@@ -149,3 +149,162 @@ One row per code. Bare codes only, until the owner has read each code set's term
 | `ehr.icd10_code.code` | text | ICD-10 code (WHO, 2019) | e.g. `E11` | none |
 | `ehr.atc_code.code` | text | ATC code (WHO Collaborating Centre) | e.g. `C09AA05` | none |
 | `ehr.loinc_code.code` | text | LOINC code (Regenstrief Institute) | e.g. `2823-3` | none |
+
+## Schema `ehr_link`
+
+### `ehr_link.patient_pseudonym`
+
+One row per patient: the link between the internal ID and the pseudonym, written by `transform/pseudonyms.py`. The key that made it is not in the database. Read by: `data_steward` only (re-linking); `etl` writes it.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `patient_id` | integer | Internal patient key | an existing patient | quasi-identifier |
+| `pseudonym` | text | HMAC-SHA-256 of the patient ID, keyed | `SYN-P-` and 16 hex characters; unique | quasi-identifier (pseudonymous) |
+
+## Schema `marts`
+
+The analytical star schema, built by dbt. Pseudonymized: no names, MRNs, exact birth dates, addresses, or source keys that encode a patient ID; row keys are new, numbered in pseudonym order. Still personal data under the GDPR (pseudonymous data, Recital 26), because the steward can re-link it. Read by: `researcher`, `data_steward`; not by `public_app`, which reads only the suppressed aggregates (from week 7).
+
+### `marts.dim_patient`
+
+One row per patient.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `pseudonym` | text | The patient's pseudonym | unique | quasi-identifier (pseudonymous) |
+| `sex` | char(1) | Sex | `F`, `M` | quasi-identifier |
+| `age_band_at_start` | text | Age band in 2016 (from the birth year) | `18-29` … `80-89`, `90+` | quasi-identifier |
+| `age_band_at_end` | text | Age band in the year of death or of the reference date | as above | quasi-identifier |
+| `region` | text | Province (the address, generalized) | the 12 Dutch provinces | quasi-identifier |
+| `death_date` | date | Date of death; empty if alive | any | health data |
+| `is_deceased` | boolean | Died before the reference date | `true`, `false` | health data |
+| `hypertension_at_start` | boolean | Hypertension on the problem list on 2016-01-01 | `true`, `false` | health data |
+| `has_hypertension` | boolean | Hypertension on the problem list by the end | `true`, `false` | health data |
+| `hyperlipidaemia_at_start` | boolean | As above, hyperlipidaemia | `true`, `false` | health data |
+| `has_hyperlipidaemia` | boolean | As above | `true`, `false` | health data |
+| `type2_diabetes_at_start` | boolean | As above, type 2 diabetes | `true`, `false` | health data |
+| `has_type2_diabetes` | boolean | As above | `true`, `false` | health data |
+| `ckd_at_start` | boolean | As above, chronic kidney disease | `true`, `false` | health data |
+| `has_ckd` | boolean | As above | `true`, `false` | health data |
+| `atrial_fibrillation_at_start` | boolean | As above, atrial fibrillation | `true`, `false` | health data |
+| `has_atrial_fibrillation` | boolean | As above | `true`, `false` | health data |
+| `heart_failure_at_start` | boolean | As above, heart failure | `true`, `false` | health data |
+| `has_heart_failure` | boolean | As above | `true`, `false` | health data |
+
+### `marts.dim_date`
+
+One row per calendar day, 2000–2026.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `date_key` | integer | The date as yyyymmdd | unique | none |
+| `calendar_date` | date | The date | any | none |
+| `year` | integer | Year | 2000–2026 | none |
+| `month` | integer | Month | 1–12 | none |
+| `weekday` | integer | ISO weekday | 1 (Monday)–7 | none |
+
+### `marts.dim_department`
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `department_id` | smallint | Department key | unique | none |
+| `code` | text | Short code | unique | none |
+| `name` | text | Display name | any | none |
+
+### `marts.dim_drug`
+
+One row per medicine. A dbt seed, written from the config; the project's own labels.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `atc_code` | text | ATC code | unique | none |
+| `drug_name` | text | Medicine (the project's label) | e.g. `ramipril` | none |
+| `drug_class` | text | Class, as the rules use it | e.g. `ace_inhibitor` | none |
+
+### `marts.dim_lab_test`
+
+One row per lab test. A dbt seed, written from the config.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `loinc_code` | text | LOINC code | unique | none |
+| `test_name` | text | Test (the project's label) | e.g. `potassium` | none |
+| `unit` | text | Unit | e.g. `mmol/L` | none |
+| `male_reference_low` | numeric | Lower reference limit, men | any | none |
+| `male_reference_high` | numeric | Upper reference limit, men | any | none |
+| `female_reference_low` | numeric | Lower reference limit, women | any | none |
+| `female_reference_high` | numeric | Upper reference limit, women | any | none |
+| `limit_low` | numeric | Lowest physiologically possible value | any | none |
+| `limit_high` | numeric | Highest physiologically possible value | any | none |
+
+### `marts.dim_diagnosis`
+
+One row per ICD-10 code. A dbt seed, written from the config.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `icd10_code` | text | ICD-10 code | unique | none |
+| `condition` | text | The project's name for it | e.g. `heart_failure` | none |
+| `icd10_chapter` | text | ICD-10 chapter number (no title) | e.g. `IX` | none |
+
+### `marts.fact_condition`
+
+One row per condition on a patient's problem list.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `pseudonym` | text | The patient | a `dim_patient` | quasi-identifier (pseudonymous) |
+| `icd10_code` | text | Diagnosis | a `dim_diagnosis`; once per patient | health data |
+| `onset_date` | date | Date of diagnosis | any | health data |
+| `onset_date_key` | integer | The same, as a `dim_date` key | a `dim_date` | health data |
+| `present_at_start` | boolean | Diagnosed before 2016-01-01 | `true`, `false` | health data |
+
+### `marts.fact_encounter`
+
+One row per visit.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `encounter_key` | bigint | Visit key, numbered in pseudonym order | unique | none |
+| `pseudonym` | text | The patient | a `dim_patient` | quasi-identifier (pseudonymous) |
+| `department_id` | smallint | Department | a `dim_department` | health data |
+| `encounter_type` | text | Kind of visit | `outpatient`, `emergency`, `inpatient` | health data |
+| `start_date_key` | integer | Start date, as a `dim_date` key | a `dim_date` | quasi-identifier |
+| `start_time` | timestamp | Start | any | quasi-identifier |
+| `end_time` | timestamp | End | at or after the start | quasi-identifier |
+| `length_hours` | numeric | Length in hours | 0 or more | health data |
+| `diagnosis_count` | bigint | Diagnoses recorded | 0 or more | health data |
+| `primary_icd10_code` | text | The diagnosis the visit was for | a `dim_diagnosis`, or empty | health data |
+
+### `marts.fact_lab_result`
+
+One row per lab result.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `lab_result_key` | bigint | Result key, numbered in pseudonym order | unique | none |
+| `pseudonym` | text | The patient | a `dim_patient` | quasi-identifier (pseudonymous) |
+| `encounter_key` | bigint | The visit; empty outside a visit | a `fact_encounter` | none |
+| `loinc_code` | text | Test | a `dim_lab_test` | health data |
+| `date_key` | integer | Date ordered, as a `dim_date` key | a `dim_date` | quasi-identifier |
+| `ordered_at` | timestamp | When ordered | any | quasi-identifier |
+| `value` | numeric | Result | within the test's limits | health data |
+| `unit` | text | Unit | the test's unit | none |
+| `reference_low` | numeric | Lower reference limit for this patient's sex | any | none |
+| `reference_high` | numeric | Upper reference limit | any | none |
+| `is_abnormal` | boolean | Outside the reference range | `true`, `false` | health data |
+
+### `marts.fact_medication_exposure`
+
+One row per continuous period a patient takes one medicine (orders that follow on without a gap).
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `exposure_key` | bigint | Period key, numbered in pseudonym order | unique | none |
+| `pseudonym` | text | The patient | a `dim_patient` | quasi-identifier (pseudonymous) |
+| `atc_code` | text | Medicine | a `dim_drug` | health data |
+| `start_date` | date | First day | any | health data |
+| `stop_date` | date | Last day | on or after the start | health data |
+| `start_date_key` | integer | Start, as a `dim_date` key | a `dim_date` | health data |
+| `days_exposed` | integer | Days in the period | 1 or more | health data |
+| `order_count` | bigint | Orders in the period | 1 or more | none |

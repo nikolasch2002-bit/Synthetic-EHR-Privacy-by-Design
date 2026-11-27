@@ -1,66 +1,22 @@
 """The ehr schemas in Postgres: the data loads, constraints hold, the dictionary matches.
 
-These tests use their own database (`<name>_test`, next to the one in
-DATABASE_URL), so they never touch the full local load. Without a database
-they skip locally, but fail in CI: there a missing prerequisite must fail.
+The database fixtures (url, dataset, loaded, conn) are in conftest.py.
 """
 
-import os
 import re
 import shutil
 from pathlib import Path
 
 import psycopg
 import pytest
-from dotenv import load_dotenv
 from psycopg import errors
 
-from generator.config import load_config
-from generator.output import COLUMNS, write_dataset, write_manifest
+from generator.output import COLUMNS, write_manifest
 from loader.load import TABLES, ManifestError, load
 
-N = 150
 DICTIONARY = (
     Path(__file__).resolve().parent.parent / "governance" / "data-dictionary.md"
 )
-
-
-@pytest.fixture(scope="module")
-def url() -> str:
-    load_dotenv()
-    base = os.environ.get("DATABASE_URL")
-    if not base:
-        if os.environ.get("CI"):
-            pytest.fail("DATABASE_URL is not set in CI")
-        pytest.skip("no DATABASE_URL: start the database (README) to run these tests")
-    name = base.rsplit("/", 1)[1].split("?")[0]
-    test_name = f"{name}_test"
-    with psycopg.connect(base, autocommit=True) as conn:
-        exists = conn.execute(
-            "select 1 from pg_database where datname = %s", (test_name,)
-        ).fetchone()
-        if not exists:
-            conn.execute(f'create database "{test_name}"')
-    return base.rsplit("/", 1)[0] + "/" + test_name
-
-
-@pytest.fixture(scope="module")
-def dataset(tmp_path_factory) -> Path:
-    out = tmp_path_factory.mktemp("data")
-    write_dataset(load_config(), out, N)
-    return out
-
-
-@pytest.fixture(scope="module")
-def loaded(url, dataset) -> dict[str, int]:
-    return load(dataset, url)
-
-
-@pytest.fixture
-def conn(url, loaded):
-    with psycopg.connect(url) as c:
-        yield c
-        c.rollback()  # every test leaves the loaded data as it was
 
 
 def csv_rows(path: Path) -> int:
@@ -227,7 +183,7 @@ def test_a_failed_load_leaves_the_database_as_it_was(url, dataset, tmp_path, loa
 TYPES = {"character": "char(1)", "timestamp without time zone": "timestamp"}
 
 
-def dictionary_columns() -> dict[str, str]:
+def dictionary_columns(schemas: tuple[str, ...]) -> dict[str, str]:
     """`schema.table.column` -> type, from governance/data-dictionary.md."""
     columns, table = {}, None
     for line in DICTIONARY.read_text(encoding="utf-8").splitlines():
@@ -238,16 +194,18 @@ def dictionary_columns() -> dict[str, str]:
         elif row := re.match(r"^\| `([a-z0-9_.]+)` \| ([a-z0-9()]+) \|", line):
             name, kind = row.groups()
             columns[name if name.count(".") == 2 else f"{table}.{name}"] = kind
-    return columns
+    return {k: v for k, v in columns.items() if k.split(".")[0] in schemas}
 
 
-def test_the_dictionary_lists_exactly_the_database_columns_with_their_types(conn):
+def check_dictionary(conn, schemas: tuple[str, ...]) -> None:
+    """The dictionary lists exactly the columns of `schemas`, with their types."""
     rows = conn.execute(
         "select table_schema || '.' || table_name || '.' || column_name, data_type "
-        "from information_schema.columns where table_schema in ('ehr', 'ehr_identity')"
+        "from information_schema.columns where table_schema = any(%s)",
+        (list(schemas),),
     ).fetchall()
     database = {name: TYPES.get(kind, kind) for name, kind in rows}
-    documented = dictionary_columns()
+    documented = dictionary_columns(schemas)
     assert sorted(set(database) - set(documented)) == [], (
         "in the database, not in the dictionary"
     )
@@ -259,7 +217,14 @@ def test_the_dictionary_lists_exactly_the_database_columns_with_their_types(conn
     )
 
 
+SOURCE_SCHEMAS = ("ehr", "ehr_identity")
+
+
+def test_the_dictionary_lists_exactly_the_database_columns_with_their_types(conn):
+    check_dictionary(conn, SOURCE_SCHEMAS)
+
+
 def test_the_dictionary_covers_every_generated_table():
-    tables = {name.rsplit(".", 1)[0] for name in dictionary_columns()}
+    tables = {name.rsplit(".", 1)[0] for name in dictionary_columns(SOURCE_SCHEMAS)}
     assert tables == set(TABLES.values())
     assert set(TABLES) <= set(COLUMNS)

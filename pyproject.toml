@@ -5,6 +5,8 @@ description = "A synthetic EHR, built privacy-by-design. Every row is fake."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "dbt-core>=1.12.7",
+    "dbt-postgres>=1.11.0",
     "faker>=40.63.0",
     "numpy>=2.5.5",
     "psycopg[binary]>=3.3.9",

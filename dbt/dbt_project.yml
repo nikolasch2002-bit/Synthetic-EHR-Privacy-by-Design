@@ -1,0 +1,42 @@
+name: synthetic_ehr
+version: "1.0.0"
+profile: synthetic_ehr
+config-version: 2
+
+# No anonymous usage statistics sent to dbt Labs: nothing leaves this machine
+# that the project does not choose to send.
+flags:
+  send_anonymous_usage_stats: false
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+test-paths: ["tests"]
+
+vars:
+  history_start: "2016-01-01"
+  reference_date: "2025-12-31"
+
+models:
+  synthetic_ehr:
+    # Staging models are ephemeral: inlined into the marts, never stored,
+    # so the only objects with patient_id are the source tables.
+    staging:
+      +materialized: ephemeral
+    marts:
+      +materialized: table
+      +schema: marts
+
+seeds:
+  synthetic_ehr:
+    +schema: marts
+    dim_lab_test:
+      # Explicit types: dbt would guess double precision, or integer where
+      # every value happens to be whole.
+      +column_types:
+        male_reference_low: numeric
+        male_reference_high: numeric
+        female_reference_low: numeric
+        female_reference_high: numeric
+        limit_low: numeric
+        limit_high: numeric

@@ -1,0 +1,11 @@
+loinc_code,test_name,unit,male_reference_low,male_reference_high,female_reference_low,female_reference_high,limit_low,limit_high
+2823-3,potassium,mmol/L,3.5,5.0,3.5,5.0,1.5,9.0
+2951-2,sodium,mmol/L,135.0,145.0,135.0,145.0,110.0,170.0
+14682-9,creatinine,umol/L,60.0,110.0,45.0,90.0,20.0,1500.0
+98979-8,egfr,mL/min/1.73m2,60.0,,60.0,,3.0,150.0
+59261-8,hba1c,mmol/mol,20.0,42.0,20.0,42.0,20.0,150.0
+14749-6,glucose,mmol/L,4.0,7.8,4.0,7.8,2.0,35.0
+22748-8,ldl,mmol/L,,3.0,,3.0,0.3,12.0
+1742-6,alt,U/L,,45.0,,35.0,3.0,2000.0
+6301-6,inr,{INR},0.8,1.2,0.8,1.2,0.8,10.0
+33762-6,nt_probnp,ng/L,,125.0,,125.0,5.0,70000.0

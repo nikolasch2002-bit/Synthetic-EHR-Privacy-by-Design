@@ -28,3 +28,12 @@ python -m uv run pytest                     # the database tests use their own <
 ```
 
 The loader checks the manifest first and loads in one transaction, so a failed load leaves the database as it was. The schema is in [db/ehr_schema.sql](db/ehr_schema.sql); every column is described in [governance/data-dictionary.md](governance/data-dictionary.md). In CI, each run gets a fresh Postgres container, built from data generated from the seed.
+
+## Build the marts and answer the questions
+
+```
+python -m uv run python -m transform        # pseudonyms, then dbt build (models and dbt tests)
+python -m uv run python -m analytics        # writes analytics/RESULTS.md
+```
+
+`transform` needs `PSEUDONYM_KEY` in `.env`: 64 hex characters, e.g. from `python -c "import secrets; print(secrets.token_hex(32))"`. It computes each patient's pseudonym (HMAC-SHA-256) in Python and writes only the link to `ehr_link`; the key never reaches the database or dbt's files. The marts are in [dbt/models/marts](dbt/models/marts); the questions are in [analytics/](analytics/), with their answers in [analytics/RESULTS.md](analytics/RESULTS.md), small counts suppressed.

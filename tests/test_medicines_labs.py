@@ -232,6 +232,23 @@ def test_hba1c_is_higher_in_diabetes(cohort):
     assert sum(diabetic) / len(diabetic) - sum(other) / len(other) > 10
 
 
+def test_diabetes_is_diagnosed_with_a_high_hba1c(config, cohort):
+    # The diagnosing test, on the day of diagnosis, outside a visit.
+    threshold = config.lab_model.hba1c_diagnosis_threshold
+    at_diagnosis = [
+        lab.value
+        for r in cohort
+        if (onset := onsets(r).get("type2_diabetes")) and onset >= config.history.start
+        for lab in r.labs
+        if lab.test == "hba1c"
+        and lab.encounter_id is None
+        and lab.ordered_at.date() == onset
+    ]
+    assert len(at_diagnosis) > 50
+    # The true level is at least the threshold; the test adds a little noise.
+    assert sum(v >= threshold - 4 for v in at_diagnosis) / len(at_diagnosis) > 0.97
+
+
 def mean_change_after_start(
     cohort, drug, test, before_days=365, after=(120, 365)
 ) -> float:

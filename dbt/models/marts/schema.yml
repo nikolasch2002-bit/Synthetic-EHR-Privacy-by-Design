@@ -1,0 +1,128 @@
+version: 2
+
+# dbt tests run with every `dbt build`: keys unique and filled, every
+# reference pointing to an existing row, and only the allowed values.
+
+models:
+  - name: dim_patient
+    description: One row per patient, pseudonymized. No identifiers.
+    columns:
+      - name: pseudonym
+        data_tests: [unique, not_null]
+      - name: sex
+        data_tests:
+          - accepted_values:
+              arguments: {values: ["F", "M"]}
+      - name: age_band_at_start
+        data_tests:
+          - accepted_values:
+              arguments: {values: ["18-29", "30-39", "40-49", "50-59", "60-69", "70-79", "80-89", "90+"]}
+      - name: region
+        data_tests: [not_null]
+
+  - name: dim_date
+    columns:
+      - name: date_key
+        data_tests: [unique, not_null]
+
+  - name: dim_department
+    columns:
+      - name: department_id
+        data_tests: [unique, not_null]
+
+  - name: dim_drug
+    columns:
+      - name: atc_code
+        data_tests: [unique, not_null]
+
+  - name: dim_lab_test
+    columns:
+      - name: loinc_code
+        data_tests: [unique, not_null]
+
+  - name: dim_diagnosis
+    columns:
+      - name: icd10_code
+        data_tests: [unique, not_null]
+
+  - name: fact_condition
+    description: One row per condition on a patient's problem list.
+    data_tests:
+      - unique_combination:
+          arguments: {columns: [pseudonym, icd10_code]}
+    columns:
+      - name: pseudonym
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_patient'), field: pseudonym}
+      - name: icd10_code
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_diagnosis'), field: icd10_code}
+      - name: onset_date_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_key}
+
+  - name: fact_encounter
+    description: One row per visit.
+    columns:
+      - name: encounter_key
+        data_tests: [unique, not_null]
+      - name: pseudonym
+        data_tests:
+          - not_null
+          - relationships:
+              arguments: {to: ref('dim_patient'), field: pseudonym}
+      - name: department_id
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_department'), field: department_id}
+      - name: encounter_type
+        data_tests:
+          - accepted_values:
+              arguments: {values: ["outpatient", "emergency", "inpatient"]}
+      - name: start_date_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_key}
+
+  - name: fact_lab_result
+    description: One row per lab result.
+    columns:
+      - name: lab_result_key
+        data_tests: [unique, not_null]
+      - name: pseudonym
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_patient'), field: pseudonym}
+      - name: encounter_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('fact_encounter'), field: encounter_key}
+      - name: loinc_code
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_lab_test'), field: loinc_code}
+      - name: date_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_key}
+
+  - name: fact_medication_exposure
+    description: One row per continuous period a patient takes one medicine.
+    columns:
+      - name: exposure_key
+        data_tests: [unique, not_null]
+      - name: pseudonym
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_patient'), field: pseudonym}
+      - name: atc_code
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_drug'), field: atc_code}
+      - name: start_date_key
+        data_tests:
+          - relationships:
+              arguments: {to: ref('dim_date'), field: date_key}
