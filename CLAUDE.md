@@ -8,7 +8,7 @@ A portfolio project: a realistic but entirely fake electronic health record (pat
 
 **[docs/project-spec.md](docs/project-spec.md) is the source of truth.** It defines the scope (what is in and out), the design, the questions the project answers, and each deliverable with the test that proves it. Read the relevant section before building any part.
 
-Current state: milestones weeks 1–5 built (2026-11-26) as stacked pull requests #14 (week 1) to week 5, each on the one before, for me to review together and merge in order; nothing after #13 is merged yet. Built: the generator (40,000 patients), the `ehr` schema in local Postgres with the loader, pseudonymized dbt marts, the drug–lab events and the RAAS-start cohort with the rule score, and questions 1, 3, 5 (rule part), 6 and 7 in `analytics/RESULTS.md`. Every clinical and design decision in weeks 1–5 was drafted by the assistant and is listed in its PR for my review. ADRs 0001–0004 accepted. Next: my review of the week PRs; then milestone week 6, the prediction model.
+Current state: milestones weeks 1–5 done and merged into `main` on 2026-11-27 (pull requests #14–#18, one per week). Built: the generator (40,000 patients), the `ehr` schema in local Postgres with the loader, pseudonymized dbt marts, the drug–lab events and the RAAS-start cohort with the rule score, and questions 1, 3, 5 (rule part), 6 and 7 in `analytics/RESULTS.md`. Every clinical and design decision in weeks 1–5 was drafted by the assistant; they are listed in each week's PR and in `docs/clinical-rules.md`. ADRs 0001–0004 accepted. Next: milestone week 6, the prediction model.
 
 ## Lessons from earlier projects
 
