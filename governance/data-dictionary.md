@@ -247,6 +247,22 @@ One row per ICD-10 code. A dbt seed, written from the config.
 | `condition` | text | The project's name for it | e.g. `heart_failure` | none |
 | `icd10_chapter` | text | ICD-10 chapter number (no title) | e.g. `IX` | none |
 
+### `marts.dim_drug_lab_rule`
+
+One row per drug-lab rule and medicine class: the five interactions (docs/clinical-rules.md, section 11). A dbt seed, written from the config.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `rule` | text | The interaction | e.g. `hypokalaemia_on_diuretic` | none |
+| `drug_class` | text | A medicine class the rule is about | a `dim_drug` class | none |
+| `test_name` | text | The lab test it watches | a `dim_lab_test` test | none |
+| `comparison` | text | How a result breaks the rule | `>=`, `>`, `<` | none |
+| `threshold` | numeric | The limit (for ALT: a multiple of the upper reference limit) | any | none |
+| `threshold_times_upper_limit` | boolean | The threshold is a multiple of the upper limit | `true`, `false` | none |
+| `window_days_after_start` | integer | For a rule about starts: days after the start that count; empty otherwise | 1 or more | none |
+| `planted_rate` | numeric | The rate the generator planted; empty for the hyperkalaemia formula | 0–1 | none |
+| `planted_per` | text | What the rate counts | `test`, `start`, `user`, `formula` | none |
+
 ### `marts.fact_condition`
 
 One row per condition on a patient's problem list.
@@ -293,6 +309,53 @@ One row per lab result.
 | `reference_low` | numeric | Lower reference limit for this patient's sex | any | none |
 | `reference_high` | numeric | Upper reference limit | any | none |
 | `is_abnormal` | boolean | Outside the reference range | `true`, `false` | health data |
+
+### `marts.fact_drug_lab_event`
+
+One row per lab result that falls inside an exposure period of a medicine linked to that test by a rule (and, for a rule about starts, inside its window), once per rule.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `event_key` | bigint | Event key, numbered in pseudonym order | unique | none |
+| `lab_result_key` | bigint | The result | a `fact_lab_result` | none |
+| `pseudonym` | text | The patient | a `dim_patient` | quasi-identifier (pseudonymous) |
+| `rule` | text | The rule | a `dim_drug_lab_rule` rule | health data |
+| `atc_code` | text | The medicine taken | a `dim_drug` | health data |
+| `loinc_code` | text | The test | a `dim_lab_test` | health data |
+| `date_key` | integer | Date of the test, as a `dim_date` key | a `dim_date` | quasi-identifier |
+| `ordered_at` | timestamp | When the test was ordered | any | quasi-identifier |
+| `value` | numeric | Result | within the test's limits | health data |
+| `days_since_start` | integer | Days since the exposure period began | 0 or more | health data |
+| `rule_triggered` | boolean | The result breaks the rule | `true`, `false` | health data |
+
+### `marts.fact_raas_start`
+
+One row per start of a RAAS inhibitor (ACE inhibitor, ARB, spironolactone) from 2017-01-01: an order with no order of the same class in the 180 days before. The prediction model's cohort.
+
+| Column | Type | Meaning | Allowed values | Personal data |
+| --- | --- | --- | --- | --- |
+| `raas_start_key` | bigint | Start key, numbered in pseudonym order | unique | none |
+| `pseudonym` | text | The patient | a `dim_patient` | quasi-identifier (pseudonymous) |
+| `drug_class` | text | Class started | `ace_inhibitor`, `arb`, `mra` | health data |
+| `atc_code` | text | Medicine started | a `dim_drug` | health data |
+| `index_date` | date | The start date | from 2017-01-01 | health data |
+| `index_date_key` | integer | The same, as a `dim_date` key | a `dim_date` | health data |
+| `sex` | char(1) | Sex | `F`, `M` | quasi-identifier |
+| `age` | integer | Age reached in the index year (from the birth year) | 18 or more | quasi-identifier |
+| `egfr_before` | numeric | Most recent eGFR in the 365 days before the index date | any; empty if none | health data |
+| `egfr_before_date` | date | Its date | before the index date | health data |
+| `egfr_missing` | boolean | No eGFR in those 365 days | `true`, `false` | health data |
+| `potassium_before` | numeric | Most recent potassium in the 365 days before | any; empty if none | health data |
+| `potassium_before_date` | date | Its date | before the index date | health data |
+| `potassium_missing` | boolean | No potassium in those 365 days | `true`, `false` | health data |
+| `diabetes` | boolean | Type 2 diabetes diagnosed by the index date | `true`, `false` | health data |
+| `heart_failure` | boolean | Heart failure diagnosed by the index date | `true`, `false` | health data |
+| `ckd` | boolean | CKD diagnosed by the index date | `true`, `false` | health data |
+| `combination` | boolean | An ACE inhibitor or ARB with spironolactone on the index date | `true`, `false` | health data |
+| `loop_or_thiazide` | boolean | A loop or thiazide diuretic on the index date | `true`, `false` | health data |
+| `rule_score` | integer | The rule baseline: one point each for eGFR < 45, potassium > 5.0, the combination, diabetes, age ≥ 75 | 0–5 | health data |
+| `potassium_measured` | boolean | Potassium measured on days 1–30 after the index date | `true`, `false` | health data |
+| `hyperkalaemia` | boolean | The outcome: a potassium ≥ 5.5 on days 1–30; empty if not measured | `true`, `false`, empty | health data |
 
 ### `marts.fact_medication_exposure`
 

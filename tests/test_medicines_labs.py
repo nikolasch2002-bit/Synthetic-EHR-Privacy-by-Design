@@ -46,7 +46,7 @@ def cohort(config):
     for patient, _ in generate_patients(config, N):
         history = draw_history(config, patient)
         kidney = KidneyCourse(config, patient, history)
-        plan = draw_therapies(config, patient, history, kidney)
+        plan = draw_therapies(config, patient, history)
         encounters, diagnoses = visits.draw(patient, history)
         results, raas = labs.draw(patient, history, kidney, plan, encounters, diagnoses)
         records.append(
@@ -382,25 +382,27 @@ def test_inr_is_checked_every_four_weeks_on_warfarin(config, cohort):
 
 
 def test_metformin_is_continued_below_egfr_30_at_the_configured_rate(config, cohort):
+    # Decided at the first eGFR result below 30 during a metformin therapy:
+    # stopped within 30 days, or continued.
     keep = 1 - config.medication_rules.metformin_stop_below_egfr_30
     users = continued = 0
     for r in cohort:
-        below = r.kidney.first_day_below(30, last_day(config, r))
-        if below is None or below + dt.timedelta(days=31) > last_day(config, r):
-            continue
-        on_then = [
-            t
-            for t in r.plan.therapies
-            if t.drug == "metformin" and t.start <= below <= t.stop
-        ]
-        if not on_then:
-            continue
-        users += 1
-        continued += on_then[0].stop > below + dt.timedelta(days=30)
+        for t in r.plan.therapies:
+            if t.drug != "metformin":
+                continue
+            low = sorted(
+                lab.ordered_at.date()
+                for lab in r.labs
+                if lab.test == "egfr"
+                and lab.value < 30
+                and t.start <= lab.ordered_at.date() <= t.stop
+            )
+            if not low or low[0] + dt.timedelta(days=31) > last_day(config, r):
+                continue
+            users += 1
+            continued += t.stop > low[0] + dt.timedelta(days=30)
     assert users > 10
-    # Stopping for other reasons also ends some therapies, so at most the configured share.
-    assert continued / users <= keep + 4 * math.sqrt(keep * (1 - keep) / users)
-    assert continued > 0
+    assert within(continued, users * keep, users * keep * (1 - keep))
 
 
 def test_alt_rises_after_a_statin_only_rarely(config, cohort):
@@ -430,7 +432,7 @@ def test_medicines_and_labs_do_not_depend_on_other_patients(config, cohort, inde
     r = cohort[index]
     encounters, diagnoses = VisitMaker(config).draw(r.patient, r.history)
     kidney = KidneyCourse(config, r.patient, r.history)
-    plan = draw_therapies(config, r.patient, r.history, kidney)
+    plan = draw_therapies(config, r.patient, r.history)
     results, raas = LabMaker(config).draw(
         r.patient, r.history, kidney, plan, encounters, diagnoses
     )

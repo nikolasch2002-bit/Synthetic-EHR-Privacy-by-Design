@@ -12,6 +12,7 @@ import io
 from pathlib import Path
 
 from generator.config import Config
+from generator.labs import STATIN_WATCH_DAYS
 
 SEEDS = Path(__file__).resolve().parent.parent / "dbt" / "seeds"
 
@@ -65,7 +66,51 @@ def seed_files(config: Config) -> dict[str, str]:
         "dim_diagnosis.csv": _csv(
             ["icd10_code", "condition", "icd10_chapter"], diagnoses
         ),
+        "dim_drug_lab_rule.csv": _csv(
+            [
+                "rule",
+                "drug_class",
+                "test_name",
+                "comparison",
+                "threshold",
+                "threshold_times_upper_limit",
+                "window_days_after_start",
+                "planted_rate",
+                "planted_per",
+            ],
+            drug_lab_rules(config),
+        ),
     }
+
+
+def drug_lab_rules(config: Config) -> list[list]:
+    """The five interactions (docs/clinical-rules.md, section 11): one row per
+    rule and medicine class. A window means the rule is about a start: only
+    tests that many days after the start count. planted_rate is what the
+    generator planted, for the planted-rate tests; the hyperkalaemia rule has
+    a formula instead of one rate."""
+    i = config.interactions
+    hk, low, inr, alt = (
+        i.hyperkalaemia_after_raas_start,
+        i.hypokalaemia_on_diuretic,
+        i.inr_above_4_on_warfarin,
+        i.alt_after_statin_start,
+    )
+    keep_metformin = round(1 - config.medication_rules.metformin_stop_below_egfr_30, 4)
+    rows = []
+    for drug_class in ("ace_inhibitor", "arb", "mra"):
+        rows.append(["hyperkalaemia_after_raas_start", drug_class, "potassium", ">=",
+                     hk.threshold, False, hk.window_days, None, "formula"])  # fmt: skip
+    for drug_class in ("loop_diuretic", "thiazide"):
+        rows.append(["hypokalaemia_on_diuretic", drug_class, "potassium", "<",
+                     low.threshold, False, None, low.chance_per_test, "test"])  # fmt: skip
+    rows.append(["inr_above_4_on_warfarin", "vka", "inr", ">",
+                 inr.threshold, False, None, inr.chance_per_test, "test"])  # fmt: skip
+    rows.append(["metformin_with_egfr_below_30", "biguanide", "egfr", "<",
+                 30, False, None, keep_metformin, "user"])  # fmt: skip
+    rows.append(["alt_after_statin_start", "statin", "alt", ">",
+                 alt.times_uln, True, STATIN_WATCH_DAYS, alt.chance, "start"])  # fmt: skip
+    return rows
 
 
 def write_seeds(config: Config, directory: Path = SEEDS) -> None:

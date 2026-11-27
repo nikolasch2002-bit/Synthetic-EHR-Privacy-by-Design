@@ -8,7 +8,7 @@ A portfolio project: a realistic but entirely fake electronic health record (pat
 
 **[docs/project-spec.md](docs/project-spec.md) is the source of truth.** It defines the scope (what is in and out), the design, the questions the project answers, and each deliverable with the test that proves it. Read the relevant section before building any part.
 
-Current state: milestone week 0. Starter setup done: CI green (lint, secret scan, tests), `main` protected, secret scan proven with a fake key. Spec drafted; D1 (Postgres + dbt), D2 (six conditions, five interactions), D3 (Streamlit, hosted/local split), D4 (a prediction model) and D5 (25,000 patients, `nl_NL`, 2016–2025, hosted database holds only `marts_public`) decided 2026-11-26, and merged into `main` (pull requests #3–#6). ADRs 0001–0004 accepted 2026-11-26 as drafted by the assistant, after my review. Next: milestone week 1, the generator.
+Current state: milestones weeks 1–5 built (2026-11-26) as stacked pull requests #14 (week 1) to week 5, each on the one before, for me to review together and merge in order; nothing after #13 is merged yet. Built: the generator (40,000 patients), the `ehr` schema in local Postgres with the loader, pseudonymized dbt marts, the drug–lab events and the RAAS-start cohort with the rule score, and questions 1, 3, 5 (rule part), 6 and 7 in `analytics/RESULTS.md`. Every clinical and design decision in weeks 1–5 was drafted by the assistant and is listed in its PR for my review. ADRs 0001–0004 accepted. Next: my review of the week PRs; then milestone week 6, the prediction model.
 
 ## Lessons from earlier projects
 
@@ -39,7 +39,8 @@ Read [docs/lessons-learned.md](docs/lessons-learned.md) before planning: section
 
 - Install: `python -m uv sync`
 - Lint: `python -m uv run ruff check .` and `python -m uv run ruff format --check .`
-- Test: `python -m uv run pytest`
+- Test: `python -m uv run pytest` (database tests need the local Postgres: `docker compose up -d --wait`)
+- Generate, load, build, answer: `python -m uv run python -m generator`, `... -m loader`, `... -m transform`, `... -m analytics`
 - Pre-commit, once per clone: `python -m uv run pre-commit install`
 
 On this Windows machine `uv` runs as `python -m uv`, and `gh` is at `C:\Program Files\GitHub CLI\gh.exe`. The local Python is 3.15; the project pins 3.12 (`.python-version`), which uv installs.
@@ -47,9 +48,9 @@ On this Windows machine `uv` runs as `python -m uv`, and `gh` is at `C:\Program 
 ## Architecture and environment
 
 - **CI:** GitHub Actions (`.github/workflows/ci.yml`) on every push: lint, secret scan of every pushed commit, tests. Actions pinned to commit hashes; Dependabot proposes updates.
-- **Database:** PostgreSQL 16, locally in Docker; in CI a fresh Postgres service container per run, built from the seed (no hosted database, no database secrets in CI). Not set up yet.
+- **Database:** PostgreSQL 16, locally in Docker; in CI a fresh Postgres service container per run, built from the seed (no hosted database, no database secrets in CI). Local: `docker-compose.yml`, container `synthetic-ehr-db` on 127.0.0.1:5433 (5433 so it never clashes with another local Postgres). Database tests use their own `<name>_test` database.
 - **Transforms:** dbt-core with dbt-postgres ([ADR 0001](docs/adr/0001-postgres-and-dbt.md)). Every policy, grant and trigger on a dbt-built table is created by dbt in a `post_hook`; roles and table-independent functions are created by a script before dbt runs.
 - **App:** Streamlit ([ADR 0003](docs/adr/0003-streamlit-hosted-local.md)), in two modes. **Hosted** (Streamlit Community Cloud, public): its secrets hold only the `public_app` login; aggregates only, no role switcher, no patient timeline. **Local:** the role switcher, the timeline and the identifiable screens. Never give the hosted app any other login. Not built yet.
 - **Hosting for the database:** a free hosted Postgres for the hosted app, holding only `marts_public` ([ADR 0004](docs/adr/0004-population-and-hosted-data.md)); provider chosen when it is set up (week 7).
-- **Generator defaults (config):** 25,000 patients, Faker locale `nl_NL`, history 2016-01-01 to 2025-12-31, reference date 2025-12-31; RAAS-inhibitor starts counted from 2017-01-01.
-- **Secrets:** none yet.
+- **Generator defaults (config):** 40,000 patients (raised from 25,000 in week 2 for enough model events), Faker locale `nl_NL`, history 2016-01-01 to 2025-12-31, reference date 2025-12-31; RAAS-inhibitor starts counted from 2017-01-01.
+- **Secrets:** `.env` holds `POSTGRES_PASSWORD`, `DATABASE_URL` and `PSEUDONYM_KEY`, all created by a script and never printed. CI uses a throwaway container password and a fresh random pseudonym key per run. `.env.example` (denied to the assistant) still needs the three names added by me.

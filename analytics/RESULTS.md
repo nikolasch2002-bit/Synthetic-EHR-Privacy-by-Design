@@ -127,13 +127,39 @@ Query: [q1b_combinations.sql](q1b_combinations.sql)
 | hypertension + hyperlipidaemia + type2_diabetes + ckd | 325 | 0.8 |
 | hypertension + heart_failure | 310 | 0.8 |
 
+## Question 3: each drug-lab rule, found against planted
+
+Query: [q3_drug_lab_interactions.sql](q3_drug_lab_interactions.sql)
+
+| rule | counted_per | denominator | events | rate_pct | planted_pct | median_days_since_start |
+| --- | --- | --- | --- | --- | --- | --- |
+| alt_after_statin_start | start | 685 | 12 | 1.75 | 2.00 | 59 |
+| hyperkalaemia_after_raas_start | formula | 3347 | 197 | 5.89 |  | 13 |
+| hypokalaemia_on_diuretic | test | 56815 | 4458 | 7.85 | 8.00 | 1062 |
+| inr_above_4_on_warfarin | test | 39460 | 3155 | 8.00 | 8.00 | 959 |
+| metformin_with_egfr_below_30 | user | 946 | 294 | 31.08 | 30.00 | 1164 |
+
+## Question 5 (rule baseline): hyperkalaemia after a RAAS-inhibitor start, by rule score
+
+Query: [q5_rule_score.sql](q5_rule_score.sql)
+
+| rule_score | starts | events | event_rate_pct |
+| --- | --- | --- | --- |
+| 0 | 1551 | 34 | 2.2 |
+| 1 | 899 | 57 | 6.3 |
+| 2 | 393 | 29 | 7.4 |
+| 3 | 165 | 32 | 19.4 |
+| 4 | 49 | 18 | 36.7 |
+| 5 | <10 | <10 | <10 |
+| not measured (left out) | 1187 |  |  |
+
 ## Question 6: HbA1c before and after metformin starts (mmol/mol)
 
 Query: [q6_hba1c_after_metformin.sql](q6_hba1c_after_metformin.sql)
 
 | metformin_starts | with_hba1c_before_and_after | mean_before | mean_after | mean_change | median_change |
 | --- | --- | --- | --- | --- | --- |
-| 1004 | 479 | 62.2 | 52.5 | -9.7 | -10.0 |
+| 1004 | 479 | 62.2 | 52.7 | -9.5 | -10.0 |
 
 ## Question 7: data quality checks (every count should be 0)
 

@@ -11,7 +11,9 @@ interactions are planted at known rates, so the analysis has a right answer:
    potassium measured in the 30 days after is 5.5 or more; if not, none is.
 2. Hypokalaemia on a loop or thiazide diuretic: each potassium, with a chance.
 3. INR above 4 on warfarin: each INR, with a chance.
-4. Metformin continued with eGFR below 30: in medications.py.
+4. Metformin continued with eGFR below 30: decided at the first eGFR result
+   below 30 during a metformin therapy. Draw medicine orders after the labs:
+   `draw` may stop metformin early in the plan it is given.
 5. ALT above 3 x the upper limit after a statin starts: once per start.
 """
 
@@ -28,7 +30,8 @@ from generator.streams import Part, patient_rng
 from generator.visits import EMERGENCY, INPATIENT, Encounter, EncounterDiagnosis
 
 LAB_ORDERS_PER_PATIENT_MAX = 100_000
-STATIN_WATCH_DAYS = 84  # an ALT rise after a statin start shows within 12 weeks
+STATIN_WATCH_DAYS = 84
+METFORMIN_EGFR_LIMIT = 30  # metformin is contraindicated below this eGFR  # an ALT rise after a statin start shows within 12 weeks
 MAX_REDRAWS = 50
 
 
@@ -190,6 +193,7 @@ class LabMaker:
         decided: list[HyperkalaemiaStart] = []
         pending = list(raas_starts)
         latest: dict[str, tuple[dt.date, float]] = {}  # test -> (day, rounded value)
+        metformin_decided: set[dt.date] = set()  # therapies (by start) already decided
         results: list[LabResult] = []
 
         def decide(start: DrugStart) -> HyperkalaemiaStart:
@@ -279,11 +283,33 @@ class LabMaker:
                     )
                 )
                 latest[test] = (day, float(value))
+                if test == "egfr" and value < METFORMIN_EGFR_LIMIT:
+                    self._metformin_rule(rng, plan, day, metformin_decided)
         while pending:
             decided.append(decide(pending.pop(0)))
         if len(results) >= LAB_ORDERS_PER_PATIENT_MAX:
             raise RuntimeError(f"patient {patient.patient_id} has too many lab orders")
         return results, decided
+
+    def _metformin_rule(
+        self, rng, plan: TherapyPlan, day: dt.date, decided: set
+    ) -> None:
+        """Interaction 4: at the first eGFR result below 30 during a metformin
+        therapy, most patients stop it within 30 days; the rest continue.
+        Decided on the result, as a doctor would, not on the true value."""
+        therapy = next(
+            (
+                t
+                for t in plan.therapies
+                if t.drug == "metformin" and t.start <= day <= t.stop
+            ),
+            None,
+        )
+        if therapy is None or therapy.start in decided:
+            return
+        decided.add(therapy.start)
+        if rng.random() < self.config.medication_rules.metformin_stop_below_egfr_30:
+            plan.stop_early(therapy, day + dt.timedelta(days=int(rng.integers(0, 31))))
 
     def _panel_of(self, tests: list[str]) -> list[str]:
         return sorted(tests, key=self.order.__getitem__)

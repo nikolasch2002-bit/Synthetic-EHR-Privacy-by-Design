@@ -1,0 +1,9 @@
+rule,drug_class,test_name,comparison,threshold,threshold_times_upper_limit,window_days_after_start,planted_rate,planted_per
+hyperkalaemia_after_raas_start,ace_inhibitor,potassium,>=,5.5,False,30,,formula
+hyperkalaemia_after_raas_start,arb,potassium,>=,5.5,False,30,,formula
+hyperkalaemia_after_raas_start,mra,potassium,>=,5.5,False,30,,formula
+hypokalaemia_on_diuretic,loop_diuretic,potassium,<,3.5,False,,0.08,test
+hypokalaemia_on_diuretic,thiazide,potassium,<,3.5,False,,0.08,test
+inr_above_4_on_warfarin,vka,inr,>,4.0,False,,0.08,test
+metformin_with_egfr_below_30,biguanide,egfr,<,30,False,,0.3,user
+alt_after_statin_start,statin,alt,>,3.0,True,84,0.02,start

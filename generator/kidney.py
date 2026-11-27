@@ -79,12 +79,3 @@ class KidneyCourse:
         return (
             self.healthy_at_start + (self.ckd_at_anchor - self.healthy_at_start) * share
         )
-
-    def first_day_below(self, threshold: float, until: dt.date) -> dt.date | None:
-        """The first day (checked weekly) the true eGFR is below `threshold`."""
-        day = self.start
-        while day <= until:
-            if self.egfr(day) < threshold:
-                return day
-            day += dt.timedelta(days=7)
-        return None

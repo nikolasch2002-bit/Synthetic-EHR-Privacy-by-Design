@@ -51,6 +51,19 @@ def loaded(url, dataset) -> dict[str, int]:
     return load(dataset, url)
 
 
+# The pseudonym key the tests build the marts with (a fixed test value).
+KEY_A = bytes(range(32))
+
+
+@pytest.fixture(scope="session")
+def built(url, loaded) -> str:
+    """The test database with its marts built. Returns its URL."""
+    from transform.run import build  # imported here: needs dbt, which is slow to load
+
+    build(url, KEY_A)
+    return url
+
+
 @pytest.fixture
 def conn(url, loaded):
     with psycopg.connect(url) as c:
