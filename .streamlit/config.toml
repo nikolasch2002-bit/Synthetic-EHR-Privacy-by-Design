@@ -1,0 +1,6 @@
+# Streamlit settings, for local runs and the hosted app alike.
+
+[browser]
+# No usage statistics sent to Streamlit: nothing leaves this machine, or the
+# hosted app, that the project does not choose to send.
+gatherUsageStats = false
